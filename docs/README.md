@@ -25,13 +25,14 @@ For maintainers and agent-assisted development:
 5. `docs/status-matrix.md`
 6. `docs/security-status.md`
 7. `docs/package-classification.md`
-8. `docs/language/README.md`
-9. `docs/agents/README.md`
-10. `agent/codemap.yml`
-11. `docs/adr/**`
-12. `docs/governance/maintainer-decision-guide.md`
-13. `docs/governance/docs-lifecycle.md`
-14. `docs/governance/out-of-scope/README.md`
+8. `docs/claim-evidence-audit.md`
+9. `docs/language/README.md`
+10. `docs/agents/README.md`
+11. `agent/codemap.yml`
+12. `docs/adr/**`
+13. `docs/governance/maintainer-decision-guide.md`
+14. `docs/governance/docs-lifecycle.md`
+15. `docs/governance/out-of-scope/README.md`
 
 ## What Belongs Here
 

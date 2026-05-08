@@ -7,6 +7,7 @@ This matrix records current capability status. It is intentionally conservative:
 | Capability | Status | Evidence Level | Evidence |
 | --- | --- | --- | --- |
 | BDD development discipline | implemented | declared | `docs/development/bdd-development-guide.md` |
+| README / CHANGELOG claim audit | implemented | declared / checked | `docs/claim-evidence-audit.md`; checked when referenced gates run |
 | Package publish intent | implemented | checked when gate runs | `docs/package-classification.md`, `just validate-publish-intent strict` |
 | Counter domain service | implemented | tested | `services/counter-service/tests/unit/counter_service_test.rs`, `services/counter-service/tests/integration/full_stack_test.rs` |
 | Counter CAS mutation | implemented | tested | `atomic_counter_outbox_consistency_under_load`, `concurrent_increments_on_embedded_turso` |
@@ -14,7 +15,7 @@ This matrix records current capability status. It is intentionally conservative:
 | Counter idempotency conflict | partial | tested | same-key different-operation test exists; cross-resource generic conflict model is not implemented |
 | Counter outbox transaction boundary | partial | tested | integration tests count mutation/outbox consistency; worker delivery/recovery belongs to Phase 4 |
 | Counter HTTP acceptance | partial | tested | `servers/bff/web-bff/tests/http_e2e_test.rs`; not all BDD negative categories are covered |
-| Projection rebuild | partial | declared / checked | worker/projector replay structure exists; counter-specific rebuild acceptance is not yet proven |
+| Projection rebuild | partial | tested when projector tests run | `workers/projector/src/main.rs` counter rebuild acceptance |
 | Worker recovery | partial | declared | worker code has checkpoint/dedupe/replay scaffolding; crash matrix tests are not proven |
 
 ## Platform And Governance

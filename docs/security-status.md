@@ -10,9 +10,9 @@ This document tracks security-sensitive capability status. It does not replace t
 | Default JWT secret rejected in production without OIDC | implemented | tested | `production_rejects_default_jwt_secret_without_oidc_issuer` | none known for config gate |
 | Missing authz endpoint rejected in production | implemented | tested | `production_rejects_missing_authz_endpoint` | does not prove OpenFGA semantics |
 | Empty CORS allowlist rejected in production | implemented | tested | `production_rejects_permissive_cors_default` | origin pattern validation is not complete |
-| OIDC issuer/audience validation | partial | checked / tested where covered | `packages/authn/oidc-verifier/src/lib.rs`, BFF HTTP tests | explicit negative matrix is incomplete |
-| Unknown kid rejection | partial | checked | verifier requires `kid` and JWKS lookup | dedicated negative test still required |
-| `alg=none` rejection | missing | unclear | no dedicated negative test found | add explicit allowlist and negative test before stable claim |
+| OIDC issuer/audience validation | partial | tested when verifier tests run | `packages/authn/oidc-verifier/tests/oidc_verifier_negative_test.rs`, BFF HTTP tests | introspection negative matrix remains incomplete |
+| Unknown kid rejection | implemented | tested when verifier tests run | `rejects_jwt_with_unknown_kid` | none known for JWKS JWT path |
+| `alg=none` / algorithm confusion rejection | implemented | tested when verifier tests run | verifier `RS256` allowlist, `rejects_jwt_with_disallowed_algorithm`, `rejects_jwt_with_none_algorithm` | future algorithms require explicit config/allowlist change |
 | Tenant resolution from verified identity + membership | partial | checked | `servers/bff/web-bff/src/tenant_context.rs` | broader cross-tenant backend negative matrix incomplete |
 | Body/header tenant spoofing rejection | partial | unclear | BFF tenant binding rejects claim mismatch | ordinary header/body spoof tests incomplete |
 | Mock authz impossible in production | partial | tested for config endpoint requirement | `Config::validate_runtime_for_profile` requires `APP_AUTHZ_ENDPOINT` | must prove composition cannot use allow-all mock in prod |
