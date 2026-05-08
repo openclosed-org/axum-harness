@@ -13,6 +13,9 @@ pub enum ProjectorError {
     #[error("Read model error: {0}")]
     ReadModel(String),
 
+    #[error("Checkpoint error: {0}")]
+    Checkpoint(String),
+
     #[error("Internal error: {0}")]
     Internal(String),
 }

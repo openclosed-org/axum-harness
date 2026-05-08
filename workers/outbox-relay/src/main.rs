@@ -112,6 +112,7 @@ async fn main() -> anyhow::Result<()> {
                         state.record_count("failed_count", failures.len()).await;
 
                         // Mark published in database for successful entries
+                        let mut completed = Vec::new();
                         if !successes.is_empty() {
                             if let Err(e) = poller.mark_published(&successes).await {
                                 error!(error = %e, "failed to mark outbox entries as published");
@@ -124,6 +125,7 @@ async fn main() -> anyhow::Result<()> {
                                 for id in &successes {
                                     let _ = idempotency_store.complete(id).await;
                                 }
+                                completed.extend(successes.clone());
                             }
                         }
 
@@ -132,8 +134,8 @@ async fn main() -> anyhow::Result<()> {
                             let _ = idempotency_store.fail(id, err.to_string()).await;
                         }
 
-                        // Advance checkpoint and dedup
-                        poller.mark_processed(&entries).await;
+                        // Advance only after publish and database state are durable.
+                        poller.mark_processed_by_id(&entries, &completed).await;
                     }
                 }
             }

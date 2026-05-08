@@ -202,7 +202,11 @@ async fn main() -> anyhow::Result<()> {
                 projected += projector.process_event(&event.envelope).await?;
                 let current = projector.checkpoint().get().await.unwrap_or(0);
                 if event.sequence > current {
-                    let _ = projector.checkpoint().advance(event.sequence).await;
+                    projector
+                        .checkpoint()
+                        .advance(event.sequence)
+                        .await
+                        .map_err(|error| ProjectorError::Checkpoint(error.to_string()))?;
                 }
             }
             state.record_count("projected_count", projected).await;
@@ -232,10 +236,171 @@ async fn replay_outbox(
             projected += projector.process_event(&event.envelope).await?;
             let current = projector.checkpoint().get().await.unwrap_or(0);
             if event.sequence > current {
-                let _ = projector.checkpoint().advance(event.sequence).await;
+                projector
+                    .checkpoint()
+                    .advance(event.sequence)
+                    .await
+                    .map_err(|error| ProjectorError::Checkpoint(error.to_string()))?;
             }
             since = event.sequence;
         }
         state.record_count("projected_count", projected).await;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use contracts_events::{AppEvent, CounterChanged, CounterOperation};
+    use data::ports::lib_sql::LibSqlPort;
+    use event_bus::outbox::OUTBOX_TABLE_SQL;
+    use event_bus::ports::EventEnvelope;
+    use serde::Deserialize;
+    use worker_runtime::FileCheckpointStore;
+
+    #[derive(Debug, Deserialize)]
+    struct ProjectionRow {
+        tenant_id: String,
+        counter_key: String,
+        value: i64,
+        version: i64,
+        operation: String,
+    }
+
+    async fn insert_counter_event(
+        db: &TursoBackend,
+        tenant_id: &str,
+        counter_key: &str,
+        operation: CounterOperation,
+        new_value: i64,
+        delta: i64,
+        version: i64,
+    ) -> u64 {
+        let event = AppEvent::CounterChanged(CounterChanged {
+            tenant_id: tenant_id.to_string(),
+            counter_key: counter_key.to_string(),
+            operation,
+            new_value,
+            delta,
+            version,
+        });
+        let envelope = EventEnvelope::new(event, "counter-service");
+        let payload = serde_json::to_string(&envelope).unwrap();
+        db.execute(
+            "INSERT INTO event_outbox (event_id, event_type, event_payload, source_service, correlation_id, status) \
+             VALUES (?, ?, ?, ?, ?, 'pending')",
+            vec![
+                envelope.id.to_string(),
+                envelope.metadata.event_type,
+                payload,
+                envelope.source_service,
+                "projection-rebuild-test".to_string(),
+            ],
+        )
+        .await
+        .unwrap();
+
+        let rows: Vec<serde_json::Value> = db
+            .query("SELECT max(sequence) AS sequence FROM event_outbox", vec![])
+            .await
+            .unwrap();
+        rows[0]["sequence"].as_i64().unwrap() as u64
+    }
+
+    async fn projection_row(db: &TursoBackend) -> ProjectionRow {
+        let rows: Vec<ProjectionRow> = db
+            .query(
+                "SELECT tenant_id, counter_key, value, version, operation FROM counter_projection",
+                vec![],
+            )
+            .await
+            .unwrap();
+        assert_eq!(rows.len(), 1);
+        rows.into_iter().next().unwrap()
+    }
+
+    #[tokio::test]
+    async fn rebuilds_counter_projection_from_outbox_history() {
+        let dir = tempfile::tempdir().unwrap();
+        let db_path = dir.path().join("projector-rebuild.db");
+        let db = TursoBackend::connect(db_path.to_str().unwrap(), None)
+            .await
+            .unwrap();
+        db.execute_batch(OUTBOX_TABLE_SQL).await.unwrap();
+
+        insert_counter_event(
+            &db,
+            "tenant-a",
+            "counter-a",
+            CounterOperation::Increment,
+            1,
+            1,
+            1,
+        )
+        .await;
+        insert_counter_event(
+            &db,
+            "tenant-a",
+            "counter-a",
+            CounterOperation::Increment,
+            2,
+            1,
+            2,
+        )
+        .await;
+        let last_sequence = insert_counter_event(
+            &db,
+            "tenant-a",
+            "counter-a",
+            CounterOperation::Decrement,
+            1,
+            -1,
+            3,
+        )
+        .await;
+
+        let read_model = SqliteCounterReadModel::new(db.clone());
+        read_model.init().await.unwrap();
+        let checkpoint_path = dir.path().join("projector-checkpoint.json");
+        let mut projector = Projector::with_checkpoint(Box::new(FileCheckpointStore::new(
+            checkpoint_path.to_str().unwrap(),
+            0,
+        )));
+        projector.add_consumer(Box::new(consumers::CounterStateConsumer::new()));
+        projector.add_read_model(Box::new(read_model));
+
+        let source = CounterOutboxSource::new(db.clone());
+        let state = WorkerHealthState::default();
+        replay_outbox(&source, &projector, &state, 0, 2)
+            .await
+            .unwrap();
+
+        let row = projection_row(&db).await;
+        assert_eq!(row.tenant_id, "tenant-a");
+        assert_eq!(row.counter_key, "counter-a");
+        assert_eq!(row.value, 1);
+        assert_eq!(row.version, 3);
+        assert_eq!(row.operation, "decrement");
+        assert_eq!(projector.checkpoint().get().await.unwrap(), last_sequence);
+
+        db.execute("DELETE FROM counter_projection", vec![])
+            .await
+            .unwrap();
+        let rebuilt_read_model = SqliteCounterReadModel::new(db.clone());
+        rebuilt_read_model.init().await.unwrap();
+        let mut rebuilt_projector = Projector::with_checkpoint(Box::new(FileCheckpointStore::new(
+            checkpoint_path.to_str().unwrap(),
+            0,
+        )));
+        rebuilt_projector.add_consumer(Box::new(consumers::CounterStateConsumer::new()));
+        rebuilt_projector.add_read_model(Box::new(rebuilt_read_model));
+
+        replay_outbox(&source, &rebuilt_projector, &state, 0, 2)
+            .await
+            .unwrap();
+        let rebuilt = projection_row(&db).await;
+        assert_eq!(rebuilt.value, row.value);
+        assert_eq!(rebuilt.version, row.version);
+        assert_eq!(rebuilt.operation, row.operation);
     }
 }

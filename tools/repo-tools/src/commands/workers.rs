@@ -25,7 +25,7 @@ pub(crate) fn verify_replay(mode: Mode) -> Result<()> {
             "workers/projector/src/main.rs",
             "projector must replay outbox and advance checkpoint only after processing",
             Some(Regex::new(
-                "replay_outbox[\\s\\S]*process_event[\\s\\S]*checkpoint\\(\\)\\.advance",
+                "replay_outbox[\\s\\S]*process_event[\\s\\S]*checkpoint\\(\\)[\\s\\S]*advance",
             )?),
         ),
         (

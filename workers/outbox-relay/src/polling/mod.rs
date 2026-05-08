@@ -277,6 +277,21 @@ impl<R: OutboxReader> OutboxPoller<R> {
         }
     }
 
+    pub async fn mark_processed_by_id(
+        &mut self,
+        entries: &[PendingOutboxEntry],
+        entry_ids: &[String],
+    ) {
+        let completed: std::collections::HashSet<&str> =
+            entry_ids.iter().map(String::as_str).collect();
+        let processed: Vec<PendingOutboxEntry> = entries
+            .iter()
+            .filter(|entry| completed.contains(entry.id.as_str()))
+            .cloned()
+            .collect();
+        self.mark_processed(&processed).await;
+    }
+
     /// Mark entries as published in the database and advance checkpoint.
     pub async fn mark_published(
         &mut self,
@@ -373,6 +388,50 @@ mod tests {
         poller.reader = reader2;
         let result2 = poller.poll_cycle().await;
         assert_eq!(result2.len(), 0);
+        let _ = std::fs::remove_file(test_checkpoint_path());
+    }
+
+    #[tokio::test]
+    async fn mark_processed_by_id_does_not_checkpoint_failed_entries() {
+        let _ = std::fs::remove_file(test_checkpoint_path());
+        let entries = vec![
+            PendingOutboxEntry {
+                id: "entry-1".to_string(),
+                sequence: 1,
+                event_type: "counter.changed".to_string(),
+                payload: "{}".to_string(),
+                source_service: "counter-service".to_string(),
+                correlation_id: None,
+                retry_count: 0,
+            },
+            PendingOutboxEntry {
+                id: "entry-2".to_string(),
+                sequence: 2,
+                event_type: "counter.changed".to_string(),
+                payload: "{}".to_string(),
+                source_service: "counter-service".to_string(),
+                correlation_id: None,
+                retry_count: 0,
+            },
+        ];
+        let reader = MemoryOutboxReader::new(entries.clone());
+        let mut poller = OutboxPoller::new(
+            reader,
+            PollerConfig::default(),
+            Box::new(worker_runtime::FileCheckpointStore::new(
+                test_checkpoint_path(),
+                0,
+            )),
+            Box::<worker_runtime::FileDedupeStore>::default(),
+        );
+
+        poller
+            .mark_processed_by_id(&entries, &["entry-1".to_string()])
+            .await;
+
+        let result = poller.poll_cycle().await;
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].id, "entry-2");
         let _ = std::fs::remove_file(test_checkpoint_path());
     }
 }

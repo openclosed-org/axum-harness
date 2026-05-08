@@ -213,3 +213,19 @@ impl Default for FileDedupeStore {
         Self::new(10_000)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn checkpoint_corruption_falls_back_to_initial_value() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("checkpoint.json");
+        std::fs::write(&path, "not valid json").unwrap();
+
+        let store = FileCheckpointStore::new(path.to_str().unwrap(), 7);
+
+        assert_eq!(store.get().await.unwrap(), 7);
+    }
+}
