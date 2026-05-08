@@ -1,4 +1,6 @@
-use jsonwebtoken::{DecodingKey, Header, Validation, decode, decode_header, jwk::JwkSet};
+use jsonwebtoken::{
+    Algorithm, DecodingKey, Header, Validation, decode, decode_header, jwk::JwkSet,
+};
 use serde::Deserialize;
 use serde::de::DeserializeOwned;
 use std::sync::Arc;
@@ -27,6 +29,7 @@ pub struct VerifiedIdentity {
 #[derive(Debug, Clone, Deserialize)]
 struct IdTokenClaims {
     sub: String,
+    exp: Option<i64>,
     tenant_id: Option<String>,
     roles: Option<Vec<String>>,
     email: Option<String>,
@@ -106,6 +109,11 @@ impl OidcVerifier {
         kid: &str,
         jwks: &JwkSet,
     ) -> Option<VerifiedIdentity> {
+        if header.alg != Algorithm::RS256 {
+            tracing::warn!(algorithm = ?header.alg, "OIDC JWT algorithm is not allowed");
+            return None;
+        }
+
         let jwk = jwks.find(kid)?;
         let decoding_key = DecodingKey::from_jwk(jwk)
             .map_err(|error| {
@@ -114,7 +122,8 @@ impl OidcVerifier {
             })
             .ok()?;
 
-        let mut validation = Validation::new(header.alg);
+        let mut validation = Validation::new(Algorithm::RS256);
+        validation.algorithms = vec![Algorithm::RS256];
         validation.set_issuer(&[self.config.issuer.as_str()]);
         if self.config.audience.trim().is_empty() {
             validation.validate_aud = false;
