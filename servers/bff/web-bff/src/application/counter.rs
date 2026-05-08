@@ -6,6 +6,7 @@
 use counter_service::contracts::service::{CounterError, CounterService};
 use counter_service::domain::CounterId;
 
+use crate::audit::{AuditEvent, AuditOutcome};
 use crate::authz::check_authz;
 use crate::composition::CounterServiceHandle;
 use crate::error::{BffError, BffResult};
@@ -124,10 +125,38 @@ async fn mutate_counter(
     .map_err(map_counter_error)?;
 
     state
+        .append_audit(
+            AuditEvent::new(
+                mutation.audit_action(),
+                "counter",
+                tenant_id.as_str(),
+                AuditOutcome::Succeeded,
+            )
+            .actor(request_context.user_sub.clone())
+            .tenant(tenant_id.as_str())
+            .request(
+                request_context.request_id.clone(),
+                request_context.trace_id.clone(),
+            )
+            .metadata(serde_json::json!({"idempotency_key":"[redacted]"})),
+        )
+        .await;
+
+    state
         .counter_cache()
         .invalidate(&cache_key(tenant_id.as_str()))
         .await;
     Ok(value)
+}
+
+impl CounterMutation {
+    fn audit_action(&self) -> &'static str {
+        match self {
+            Self::Increment => "counter.increment",
+            Self::Decrement => "counter.decrement",
+            Self::Reset => "counter.reset",
+        }
+    }
 }
 
 fn build_service(state: &BffState) -> BffResult<CounterServiceHandle> {

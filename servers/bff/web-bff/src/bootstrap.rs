@@ -1,5 +1,6 @@
 //! Bootstrap and composition root for the Web BFF.
 
+use crate::audit::InMemoryAuditSink;
 use crate::config::Config;
 use crate::state::{BffCompositionRoot, BffState, DatabaseBackend};
 use authn_oidc_verifier::{OidcVerifier, OidcVerifierConfig};
@@ -36,6 +37,7 @@ pub async fn bootstrap_bff_state(config: Config) -> anyhow::Result<BffState> {
         http_client,
         authz,
         oidc_verifier,
+        audit: InMemoryAuditSink::shared(),
     })
 }
 
@@ -51,6 +53,7 @@ pub async fn bootstrap_test_state(db: EmbeddedTurso) -> anyhow::Result<BffState>
         http_client: build_http_client(),
         authz: Arc::new(MockAuthzAdapter::new()),
         oidc_verifier: None,
+        audit: InMemoryAuditSink::shared(),
     })
 }
 

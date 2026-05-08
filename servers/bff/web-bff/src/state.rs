@@ -4,6 +4,7 @@
 //! When `turso_url` is configured, connects to Turso cloud.
 //! Otherwise falls back to embedded database.
 
+use crate::audit::{AuditEvent, InMemoryAuditSink};
 use crate::bootstrap::{bootstrap_bff_state, bootstrap_test_state};
 use crate::composition::{
     CounterServiceHandle, TenantServiceHandle, UserProfileRepositoryHandle,
@@ -47,6 +48,9 @@ pub struct BffState {
 
     /// Shared OIDC verifier. Present only when generic OIDC issuer is configured.
     pub(crate) oidc_verifier: Option<OidcVerifier>,
+
+    /// Append-only BFF boundary audit sink.
+    pub(crate) audit: Arc<InMemoryAuditSink>,
 }
 
 #[derive(Clone)]
@@ -93,6 +97,14 @@ impl BffState {
 
     pub fn set_oidc_verifier(&mut self, verifier: Option<OidcVerifier>) {
         self.oidc_verifier = verifier;
+    }
+
+    pub async fn append_audit(&self, event: AuditEvent) {
+        self.audit.append(event).await;
+    }
+
+    pub async fn audit_events(&self) -> Vec<AuditEvent> {
+        self.audit.events().await
     }
 
     pub fn counter_cache(&self) -> &Cache<String, i64> {

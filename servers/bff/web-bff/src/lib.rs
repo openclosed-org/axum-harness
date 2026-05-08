@@ -5,6 +5,7 @@
 #![deny(unused_imports, unused_variables)]
 
 pub mod application;
+pub mod audit;
 pub mod authz;
 pub mod bootstrap;
 pub mod composition;

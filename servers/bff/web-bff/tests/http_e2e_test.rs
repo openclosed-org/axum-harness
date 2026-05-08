@@ -15,7 +15,7 @@ use mockito::Server;
 use storage_turso::EmbeddedTurso;
 use tower::ServiceExt;
 use user_service::{domain::User, infrastructure::LibSqlUserRepository, ports::UserRepository};
-use web_bff::{create_router, openapi, state::BffState};
+use web_bff::{audit::AuditOutcome, create_router, openapi, state::BffState};
 
 /// Helper: build test AppState with embedded Turso
 async fn build_test_state() -> BffState {
@@ -1202,6 +1202,54 @@ async fn counter_increment_replays_same_idempotency_key() {
 }
 
 #[tokio::test]
+async fn counter_mutation_audit_redacts_idempotency_key() {
+    let state = build_test_state().await;
+    let app = create_router(state.clone());
+    let token = make_test_token("audit-counter-user");
+
+    let init_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/api/tenant/init")
+                .method(http::Method::POST)
+                .header(http::header::AUTHORIZATION, format!("Bearer {token}"))
+                .header(http::header::CONTENT_TYPE, "application/json")
+                .body(Body::from(
+                    r#"{"user_sub":"audit-counter-user","user_name":"Audit Counter User"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(init_response.status(), StatusCode::OK);
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri("/api/counter/increment")
+                .method(http::Method::POST)
+                .header(http::header::AUTHORIZATION, format!("Bearer {token}"))
+                .header("Idempotency-Key", "raw-secret-idem-key")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let events = state.audit_events().await;
+    let event = events
+        .iter()
+        .find(|event| event.action == "counter.increment")
+        .expect("counter increment should append an audit event");
+    assert_eq!(event.outcome, AuditOutcome::Succeeded);
+    let rendered = serde_json::to_string(&event.metadata).unwrap();
+    assert!(rendered.contains("[redacted]"));
+    assert!(!rendered.contains("raw-secret-idem-key"));
+}
+
+#[tokio::test]
 async fn counter_endpoints_continue_to_work_after_repeated_tenant_init() {
     let state = build_test_state().await;
     let app = create_router(state);
@@ -1338,7 +1386,7 @@ async fn tenant_init_rejects_missing_content_type() {
 #[tokio::test]
 async fn counter_endpoint_rejects_tenant_claim_mismatch_with_forbidden_contract() {
     let state = build_dev_headers_state().await;
-    let app = create_router(state);
+    let app = create_router(state.clone());
 
     let init_response = app
         .clone()
@@ -1377,6 +1425,13 @@ async fn counter_endpoint_rejects_tenant_claim_mismatch_with_forbidden_contract(
         body.get("message").unwrap(),
         "Tenant claim does not match authenticated user binding"
     );
+
+    let events = state.audit_events().await;
+    assert!(events.iter().any(|event| {
+        event.action == "tenant.resolve"
+            && event.outcome == AuditOutcome::Denied
+            && event.metadata["reason"] == "claim_mismatch"
+    }));
 }
 
 // ─── CORS Headers ────────────────────────────────────────────────────────────
