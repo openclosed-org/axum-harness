@@ -2,6 +2,7 @@
 name = "auth-service"
 version = "0.1.0"
 edition = "2024"
+publish = false
 description = "Auth service — OAuth flow, session management, token handling"
 license = "Apache-2.0"
 rust-version.workspace = true

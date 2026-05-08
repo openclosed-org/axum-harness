@@ -2,6 +2,7 @@
 name = "platform-validator"
 version = "0.1.0"
 edition = "2024"
+publish = false
 description = "Platform model validator — validates YAML models against JSON schemas"
 license = "Apache-2.0"
 rust-version.workspace = true

@@ -21,13 +21,17 @@ For maintainers and agent-assisted development:
 1. `AGENTS.md`
 2. `docs/architecture/north-star.md`
 3. `docs/architecture/harness-philosophy.md`
-4. `docs/language/README.md`
-5. `docs/agents/README.md`
-6. `agent/codemap.yml`
-7. `docs/adr/**`
-8. `docs/governance/maintainer-decision-guide.md`
-9. `docs/governance/docs-lifecycle.md`
-10. `docs/governance/out-of-scope/README.md`
+4. `docs/development/bdd-development-guide.md`
+5. `docs/status-matrix.md`
+6. `docs/security-status.md`
+7. `docs/package-classification.md`
+8. `docs/language/README.md`
+9. `docs/agents/README.md`
+10. `agent/codemap.yml`
+11. `docs/adr/**`
+12. `docs/governance/maintainer-decision-guide.md`
+13. `docs/governance/docs-lifecycle.md`
+14. `docs/governance/out-of-scope/README.md`
 
 ## What Belongs Here
 
@@ -40,6 +44,7 @@ Tracked `docs/**` should stay limited to:
 5. agent consumption and skill-authoring guidance in `docs/agents/**`
 6. historical notes in `docs/archive/**`
 7. governance memory in `docs/governance/**` when it remains stable and worth keeping
+8. development process and evidence status in `docs/development/**`
 
 ## What Does Not Belong Here
 

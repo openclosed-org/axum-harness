@@ -12,6 +12,7 @@ use chrono::{DateTime, Utc};
 use data::ports::lib_sql::LibSqlPort;
 use event_bus::outbox::{OUTBOX_PENDING_INDEX_SQL, OUTBOX_TABLE_SQL};
 use serde::Deserialize;
+use sha2::{Digest, Sha256};
 
 use crate::domain::{Counter, CounterId};
 use crate::ports::{
@@ -45,6 +46,11 @@ struct IdempotencyRow {
     result_version: Option<i64>,
 }
 
+#[derive(Debug, Deserialize)]
+struct TableColumnRow {
+    name: String,
+}
+
 /// CounterRepository backed by a libsql port.
 ///
 /// This is the **primary** repository implementation used in Phase 0
@@ -74,6 +80,42 @@ impl<P: LibSqlPort> LibSqlCounterRepository<P> {
         self.port.execute_batch(OUTBOX_TABLE_SQL).await?;
         self.port.execute_batch(OUTBOX_PENDING_INDEX_SQL).await?;
         self.port.execute_batch(migration_sql).await?;
+        self.ensure_idempotency_columns().await?;
+        Ok(())
+    }
+
+    async fn ensure_idempotency_columns(&self) -> Result<(), RepositoryError> {
+        let rows: Vec<TableColumnRow> = self
+            .port
+            .query("PRAGMA table_info(counter_idempotency)", vec![])
+            .await?;
+        let has_column = |name: &str| rows.iter().any(|row| row.name == name);
+
+        if !has_column("tenant_id") {
+            self.port
+                .execute(
+                    "ALTER TABLE counter_idempotency ADD COLUMN tenant_id TEXT NOT NULL DEFAULT ''",
+                    vec![],
+                )
+                .await?;
+        }
+        if !has_column("resource") {
+            self.port
+                .execute(
+                    "ALTER TABLE counter_idempotency ADD COLUMN resource TEXT NOT NULL DEFAULT 'counter'",
+                    vec![],
+                )
+                .await?;
+        }
+        if !has_column("response_digest") {
+            self.port
+                .execute(
+                    "ALTER TABLE counter_idempotency ADD COLUMN response_digest TEXT",
+                    vec![],
+                )
+                .await?;
+        }
+
         Ok(())
     }
 }
@@ -277,7 +319,8 @@ impl<P: LibSqlPort> CounterRepository for LibSqlCounterRepository<P> {
     ) -> Result<CommitOutcome, RepositoryError> {
         let expected_version = m.new_version - 1;
         let operation = m.operation.as_str();
-        let request_hash = format!("{}:{operation}", m.counter_id.as_str());
+        let resource = "counter";
+        let request_hash = request_hash(m.counter_id.as_str(), resource, operation);
 
         if let Some(key) = idempotency_key
             && let Some(outcome) = self
@@ -294,13 +337,15 @@ impl<P: LibSqlPort> CounterRepository for LibSqlCounterRepository<P> {
             let rows = tx
                 .execute(
                     "INSERT INTO counter_idempotency \
-                     (counter_id, idempotency_key, request_hash, operation, status) \
-                     VALUES (?, ?, ?, ?, 'in_progress') \
+                     (counter_id, idempotency_key, request_hash, tenant_id, resource, operation, status) \
+                     VALUES (?, ?, ?, ?, ?, ?, 'in_progress') \
                      ON CONFLICT(counter_id, idempotency_key) DO NOTHING",
                     vec![
                         m.counter_id.as_str().to_string(),
                         key.to_string(),
                         request_hash.clone(),
+                        m.counter_id.as_str().to_string(),
+                        resource.to_string(),
                         operation.to_string(),
                     ],
                 )
@@ -372,13 +417,15 @@ impl<P: LibSqlPort> CounterRepository for LibSqlCounterRepository<P> {
         .await?;
 
         if let Some(key) = idempotency_key {
+            let response_digest = response_digest(m.new_value, m.new_version);
             tx.execute(
                 "UPDATE counter_idempotency \
-                 SET status = 'completed', result_value = ?, result_version = ?, completed_at = datetime('now') \
+                 SET status = 'completed', result_value = ?, result_version = ?, response_digest = ?, completed_at = datetime('now') \
                  WHERE counter_id = ? AND idempotency_key = ? AND request_hash = ?",
                 vec![
                     m.new_value.to_string(),
                     m.new_version.to_string(),
+                    response_digest,
                     m.counter_id.as_str().to_string(),
                     key.to_string(),
                     request_hash,
@@ -395,6 +442,23 @@ impl<P: LibSqlPort> CounterRepository for LibSqlCounterRepository<P> {
             new_version: m.new_version,
         })
     }
+}
+
+fn request_hash(tenant_id: &str, resource: &str, operation: &str) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(b"counter-service:v1:");
+    hasher.update(tenant_id.as_bytes());
+    hasher.update(b":");
+    hasher.update(resource.as_bytes());
+    hasher.update(b":");
+    hasher.update(operation.as_bytes());
+    hex::encode(hasher.finalize())
+}
+
+fn response_digest(value: i64, version: i64) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(format!("value={value};version={version}").as_bytes());
+    hex::encode(hasher.finalize())
 }
 
 impl<P: LibSqlPort> LibSqlCounterRepository<P> {

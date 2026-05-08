@@ -175,6 +175,10 @@ gate-existence MODE='warn':
 gate-imports MODE='warn':
     cargo run -p repo-tools -- validate-imports --mode {{MODE}}
 
+# Phase 0B package publish intent validation gate
+validate-publish-intent MODE='warn':
+    cargo run -p repo-tools -- validate-publish-intent --mode {{MODE}}
+
 # Shared contracts vs service-local event boundary gate
 gate-contract-boundaries MODE='warn':
     cargo run -p repo-tools -- validate-contract-boundaries --mode {{MODE}}

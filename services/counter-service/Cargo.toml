@@ -2,6 +2,7 @@
 name = "counter-service"
 version = "0.1.0"
 edition = "2024"
+publish = false
 description = "Counter domain service: counting, statistics, analytics"
 license = "Apache-2.0"
 rust-version.workspace = true
@@ -24,6 +25,8 @@ async-trait = { workspace = true }
 tracing = { workspace = true }
 chrono = { workspace = true }
 uuid = { workspace = true, features = ["v7"] }
+sha2 = { workspace = true }
+hex = { workspace = true }
 
 # Trait-only feature for downstream consumers (BFFs)
 # When BFF depends on counter-service with features = ["trait-only"],

@@ -2,6 +2,7 @@
 name = "tenant-service"
 version = "0.1.0"
 edition = "2024"
+publish = false
 description = "Tenant domain service — multi-tenant isolation, member management, tenant lifecycle"
 license = "Apache-2.0"
 rust-version.workspace = true

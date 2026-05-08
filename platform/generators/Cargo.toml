@@ -2,6 +2,7 @@
 name = "platform-generator"
 version = "0.1.0"
 edition = "2024"
+publish = false
 description = "Platform catalog generator — reads models and generates catalog/ output"
 license = "Apache-2.0"
 rust-version.workspace = true

@@ -87,6 +87,7 @@ help-verify:
     @printf "  just verify-contracts warn\n"
     @printf "  just drift-check              generated contract 漂移检查\n"
     @printf "  just boundary-check           架构边界检查\n"
+    @printf "  just validate-publish-intent strict\n"
     @printf "  just audit-app-shell-boundary dry-run\n"
     @printf "  just gate-existence MODE=warn\n"
     @printf "  just gate-release             release 门禁（RELEASE_TYPE=major 可声明 breaking）\n"

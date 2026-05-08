@@ -2,6 +2,7 @@
 name = "web-bff"
 version = "0.1.0"
 edition = "2024"
+publish = false
 description = "Backend For Frontend — Web端聚合层 (Axum)"
 license = "Apache-2.0"
 rust-version.workspace = true

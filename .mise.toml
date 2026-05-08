@@ -9,9 +9,9 @@ MISE_TASK_OUTPUT = "prefix"
 
 [tools]
 # ── 核心运行时（锁版本，影响编译产物）────────────────────
-rust = "1.94.1"
-node = "24.14.1"
-bun = "1.3.12"
+rust = "1.95.0"
+node = "26.1"
+bun = "1.3.13"
 
 # ── 项目入口 / 编排（latest，行为稳定）────────────────────
 "aqua:moonrepo/moon" = "latest"

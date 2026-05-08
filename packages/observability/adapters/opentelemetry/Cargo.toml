@@ -2,6 +2,7 @@
 name = "adapter-telemetry-otel"
 version = "0.1.0"
 edition = "2024"
+publish = false
 description = "OpenTelemetry adapter for distributed tracing and metrics"
 
 [dependencies]

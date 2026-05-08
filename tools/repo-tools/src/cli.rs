@@ -30,6 +30,7 @@ enum Commands {
     VerifyHandoff(VerifyHandoffArgs),
     ValidateExistence(ModeArgs),
     ValidateImports(ModeArgs),
+    ValidatePublishIntent(ModeArgs),
     ValidateContractBoundaries(ModeArgs),
     ValidateContracts(ModeArgs),
     GenDirectoryCategories,
@@ -779,6 +780,9 @@ pub(crate) fn run() -> Result<()> {
             commands::harness::validate_existence(args.mode.into())
         }
         Commands::ValidateImports(args) => commands::harness::validate_imports(args.mode.into()),
+        Commands::ValidatePublishIntent(args) => {
+            commands::harness::validate_publish_intent(args.mode.into())
+        }
         Commands::ValidateContractBoundaries(args) => {
             commands::contracts::validate_contract_boundaries(args.mode.into())
         }

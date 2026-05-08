@@ -45,7 +45,7 @@ impl SqlTransaction for InMemoryTransaction {
             .map(|s| s as &dyn rusqlite::types::ToSql)
             .collect();
         let affected = conn
-            .execute(sql, rusqlite::params_from_iter(param_refs.into_iter()))
+            .execute(sql, rusqlite::params_from_iter(param_refs))
             .map_err(|e| Box::new(e) as LibSqlError)?;
         Ok(affected as u64)
     }
@@ -81,7 +81,7 @@ impl LibSqlPort for InMemoryLibSqlPort {
             .map(|s| s as &dyn rusqlite::types::ToSql)
             .collect();
         let affected = conn
-            .execute(sql, rusqlite::params_from_iter(param_refs.into_iter()))
+            .execute(sql, rusqlite::params_from_iter(param_refs))
             .map_err(|e| Box::new(e) as LibSqlError)?;
         Ok(affected as u64)
     }
@@ -113,7 +113,7 @@ impl LibSqlPort for InMemoryLibSqlPort {
             .collect::<Vec<_>>();
 
         let rows: Vec<serde_json::Value> = stmt
-            .query_map(rusqlite::params_from_iter(param_refs.into_iter()), |row| {
+            .query_map(rusqlite::params_from_iter(param_refs), |row| {
                 let mut map = serde_json::Map::new();
                 for (i, col) in columns.iter().enumerate() {
                     // Handle different SQLite types
@@ -349,6 +349,68 @@ async fn count_idempotency(port: &impl LibSqlPort) -> usize {
         .await
         .unwrap();
     rows.first().map(|r| r.count as usize).unwrap_or(0)
+}
+
+#[derive(Debug, Deserialize)]
+struct IdempotencyEvidenceRow {
+    request_hash: String,
+    tenant_id: String,
+    resource: String,
+    operation: String,
+    status: String,
+    result_value: i64,
+    result_version: i64,
+    response_digest: String,
+}
+
+async fn idempotency_evidence(
+    port: &impl LibSqlPort,
+    tenant: &TenantId,
+    key: &str,
+) -> IdempotencyEvidenceRow {
+    let rows: Vec<IdempotencyEvidenceRow> = port
+        .query(
+            "SELECT request_hash, tenant_id, resource, operation, status, result_value, result_version, response_digest \
+             FROM counter_idempotency WHERE counter_id = ? AND idempotency_key = ?",
+            vec![tenant.as_str().to_string(), key.to_string()],
+        )
+        .await
+        .unwrap();
+    rows.into_iter()
+        .next()
+        .expect("idempotency evidence row should exist")
+}
+
+#[tokio::test]
+async fn idempotency_record_stores_request_fingerprint_and_response_digest() {
+    let dir = tempfile::tempdir().unwrap();
+    let db_path = dir.path().join("test_idem_evidence.db");
+    let _guard = Box::leak(Box::new(dir));
+    let db = storage_turso::EmbeddedTurso::new(db_path.to_str().unwrap())
+        .await
+        .unwrap();
+    let repo = LibSqlCounterRepository::new(db.clone());
+    repo.migrate().await.unwrap();
+
+    let service = TenantScopedCounterService::new(repo);
+    let tenant = TenantId("idem-evidence-tenant".into());
+    let idem_key = "idem-evidence-key";
+
+    let first = service.increment(&tenant, Some(idem_key)).await.unwrap();
+    let replay = service.increment(&tenant, Some(idem_key)).await.unwrap();
+    let row = idempotency_evidence(&db, &tenant, idem_key).await;
+
+    assert_eq!(first, 1);
+    assert_eq!(replay, 1);
+    assert_eq!(row.tenant_id, tenant.as_str());
+    assert_eq!(row.resource, "counter");
+    assert_eq!(row.operation, "increment");
+    assert_eq!(row.status, "completed");
+    assert_eq!(row.result_value, 1);
+    assert_eq!(row.result_version, 1);
+    assert_eq!(row.request_hash.len(), 64);
+    assert_eq!(row.response_digest.len(), 64);
+    assert_eq!(count_outbox(&db).await, 1);
 }
 
 #[tokio::test]

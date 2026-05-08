@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use anyhow::{Context, Result, bail};
 
 use crate::cli::{GateArgs, GateGuidanceArgs, GateName, RouteTaskArgs, VerifyHandoffArgs};
-use crate::core::manifest::{load_codemap, load_gate_matrix, load_routing_rules};
+use crate::core::manifest::{cargo_metadata, load_codemap, load_gate_matrix, load_routing_rules};
 use crate::support::{
     Issue, Mode, Report, collect_files_named, except_path, git_changed_paths, normalize_slashes,
     pattern_matches, read, run_capture, same_module, workspace_root,
@@ -213,6 +213,11 @@ pub(crate) fn gate(args: GateArgs) -> Result<()> {
                 args: vec!["gate-imports".into(), "strict".into()],
             },
             GateCommand {
+                label: "publish intent validation",
+                program: "just",
+                args: vec!["validate-publish-intent".into(), "strict".into()],
+            },
+            GateCommand {
                 label: "typecheck",
                 program: "just",
                 args: vec!["typecheck".into()],
@@ -261,6 +266,19 @@ pub(crate) fn gate(args: GateArgs) -> Result<()> {
                     "repo-tools".into(),
                     "--".into(),
                     "boundary-check".into(),
+                ],
+            },
+            GateCommand {
+                label: "publish intent validation",
+                program: "cargo",
+                args: vec![
+                    "run".into(),
+                    "-p".into(),
+                    "repo-tools".into(),
+                    "--".into(),
+                    "validate-publish-intent".into(),
+                    "--mode".into(),
+                    "strict".into(),
                 ],
             },
         ],
@@ -762,6 +780,99 @@ pub(crate) fn validate_imports(mode: Mode) -> Result<()> {
     report.exit_if_needed();
     Ok(())
 }
+
+pub(crate) fn validate_publish_intent(mode: Mode) -> Result<()> {
+    let root = workspace_root()?;
+    let metadata = cargo_metadata(&root)?;
+    let workspace_members = metadata
+        .get("workspace_members")
+        .and_then(serde_json::Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    let packages = metadata
+        .get("packages")
+        .and_then(serde_json::Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+
+    let mut package_by_id = BTreeMap::new();
+    for package in packages {
+        let Some(id) = package.get("id").and_then(serde_json::Value::as_str) else {
+            continue;
+        };
+        package_by_id.insert(id.to_string(), package);
+    }
+
+    let mut issues = Vec::new();
+    for member in workspace_members {
+        let Some(id) = member.as_str() else {
+            continue;
+        };
+        let Some(package) = package_by_id.get(id) else {
+            continue;
+        };
+        let name = package
+            .get("name")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or("<unknown>");
+        let manifest_path = package
+            .get("manifest_path")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or("<unknown>");
+        let scope = if manifest_path == "<unknown>" {
+            format!("{name}:<unknown>")
+        } else {
+            let path = std::path::Path::new(manifest_path);
+            let relative = path.strip_prefix(&root).unwrap_or(path);
+            format!("{}:{}", name, normalize_slashes(relative))
+        };
+
+        match package.get("publish") {
+            Some(serde_json::Value::Array(values)) if values.is_empty() => {}
+            Some(serde_json::Value::Array(values)) => {
+                issues.push((
+                    mode.is_strict(),
+                    scope,
+                    format!(
+                        "workspace package is publishable to registry allowlist {:?}; Phase 0 policy requires publish=false",
+                        values
+                    ),
+                ));
+            }
+            Some(serde_json::Value::Null) | None => {
+                issues.push((
+                    mode.is_strict(),
+                    scope,
+                    "missing explicit publish=false intent".to_string(),
+                ));
+            }
+            Some(other) => {
+                issues.push((
+                    mode.is_strict(),
+                    scope,
+                    format!("unexpected publish metadata shape: {other}"),
+                ));
+            }
+        }
+    }
+
+    let mut report = Report::new("validate-publish-intent", mode);
+    report.extend(issues.iter().map(|(error, scope, message)| {
+        if *error {
+            Issue::error(scope.clone(), message.clone())
+        } else {
+            Issue::warn(scope.clone(), message.clone())
+        }
+    }));
+    report.print();
+    if issues.is_empty() {
+        println!("All workspace packages explicitly declare publish=false");
+        return Ok(());
+    }
+    report.exit_if_needed();
+    Ok(())
+}
+
 fn yaml_patterns(value: Option<&serde_yaml::Value>) -> Vec<String> {
     match value {
         Some(serde_yaml::Value::Sequence(sequence)) => sequence
