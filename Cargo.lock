@@ -635,7 +635,9 @@ dependencies = [
 name = "authn-oidc-verifier"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
  "jsonwebtoken",
+ "mockito",
  "reqwest 0.13.2",
  "serde",
  "serde_json",
@@ -6720,6 +6722,7 @@ dependencies = [
  "serde",
  "serde_json",
  "storage_turso",
+ "tempfile",
  "thiserror 2.0.18",
  "tokio",
  "tracing",
@@ -11709,6 +11712,7 @@ dependencies = [
  "serde",
  "serde_json",
  "storage_turso",
+ "tempfile",
  "thiserror 2.0.18",
  "tokio",
  "tracing",

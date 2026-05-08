@@ -16,5 +16,9 @@ tokio = { workspace = true }
 tracing = { workspace = true }
 workspace-hack = { workspace = true }
 
+[dev-dependencies]
+base64 = { workspace = true }
+mockito = { workspace = true }
+
 [lints]
 workspace = true

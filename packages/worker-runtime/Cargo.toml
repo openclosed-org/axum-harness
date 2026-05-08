@@ -26,6 +26,7 @@ axum = { workspace = true }
 observability = { workspace = true }
 
 [dev-dependencies]
+tempfile = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt", "sync"] }
 uuid = { workspace = true, features = ["v7"] }
 
