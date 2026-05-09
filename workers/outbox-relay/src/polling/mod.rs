@@ -321,14 +321,23 @@ impl<R: OutboxReader> OutboxPoller<R> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::PathBuf;
+    use std::time::{SystemTime, UNIX_EPOCH};
 
-    fn test_checkpoint_path() -> &'static str {
-        "/tmp/outbox-poller-test-checkpoint.json"
+    fn test_checkpoint_path(test_name: &str) -> PathBuf {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system time should be after Unix epoch")
+            .as_nanos();
+        std::env::temp_dir().join(format!(
+            "outbox-poller-{test_name}-{}-{nanos}.json",
+            std::process::id()
+        ))
     }
 
     #[tokio::test]
     async fn poll_cycle_returns_pending_entries() {
-        let _ = std::fs::remove_file(test_checkpoint_path());
+        let checkpoint_path = test_checkpoint_path("returns-pending");
         let entries = vec![PendingOutboxEntry {
             id: "entry-1".to_string(),
             sequence: 1,
@@ -343,7 +352,7 @@ mod tests {
             reader,
             PollerConfig::default(),
             Box::new(worker_runtime::FileCheckpointStore::new(
-                test_checkpoint_path(),
+                checkpoint_path.to_str().unwrap(),
                 0,
             )),
             Box::<worker_runtime::FileDedupeStore>::default(),
@@ -352,12 +361,12 @@ mod tests {
         let result = poller.poll_cycle().await;
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].id, "entry-1");
-        let _ = std::fs::remove_file(test_checkpoint_path());
+        let _ = std::fs::remove_file(checkpoint_path);
     }
 
     #[tokio::test]
     async fn poll_cycle_skips_duplicates() {
-        let _ = std::fs::remove_file(test_checkpoint_path());
+        let checkpoint_path = test_checkpoint_path("skips-duplicates");
         let entries = vec![PendingOutboxEntry {
             id: "entry-1".to_string(),
             sequence: 1,
@@ -372,7 +381,7 @@ mod tests {
             reader,
             PollerConfig::default(),
             Box::new(worker_runtime::FileCheckpointStore::new(
-                test_checkpoint_path(),
+                checkpoint_path.to_str().unwrap(),
                 0,
             )),
             Box::<worker_runtime::FileDedupeStore>::default(),
@@ -388,12 +397,12 @@ mod tests {
         poller.reader = reader2;
         let result2 = poller.poll_cycle().await;
         assert_eq!(result2.len(), 0);
-        let _ = std::fs::remove_file(test_checkpoint_path());
+        let _ = std::fs::remove_file(checkpoint_path);
     }
 
     #[tokio::test]
     async fn mark_processed_by_id_does_not_checkpoint_failed_entries() {
-        let _ = std::fs::remove_file(test_checkpoint_path());
+        let checkpoint_path = test_checkpoint_path("partial-checkpoint");
         let entries = vec![
             PendingOutboxEntry {
                 id: "entry-1".to_string(),
@@ -419,7 +428,7 @@ mod tests {
             reader,
             PollerConfig::default(),
             Box::new(worker_runtime::FileCheckpointStore::new(
-                test_checkpoint_path(),
+                checkpoint_path.to_str().unwrap(),
                 0,
             )),
             Box::<worker_runtime::FileDedupeStore>::default(),
@@ -432,6 +441,6 @@ mod tests {
         let result = poller.poll_cycle().await;
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].id, "entry-2");
-        let _ = std::fs::remove_file(test_checkpoint_path());
+        let _ = std::fs::remove_file(checkpoint_path);
     }
 }
