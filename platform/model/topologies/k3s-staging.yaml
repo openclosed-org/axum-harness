@@ -39,6 +39,12 @@ resources:
     config:
       mode: "external"
 
+  - name: surrealdb
+    enabled: true
+    config:
+      mode: "statefulset"
+      storage: "persistent-volume-claim"
+
   - name: nats
     enabled: true
 

@@ -1,6 +1,6 @@
 # Flux Infrastructure Definition
 #
-# This Kustomization manages all infrastructure components (NATS, Valkey, MinIO).
+# This Kustomization manages all infrastructure components (NATS, Valkey, MinIO, SurrealDB).
 # Applied before applications to ensure dependencies exist.
 
 apiVersion: kustomize.toolkit.fluxcd.io/v1
@@ -33,6 +33,10 @@ spec:
     - apiVersion: apps/v1
       kind: StatefulSet
       name: minio
+      namespace: app
+    - apiVersion: apps/v1
+      kind: StatefulSet
+      name: surrealdb
       namespace: app
   
   # Target namespace

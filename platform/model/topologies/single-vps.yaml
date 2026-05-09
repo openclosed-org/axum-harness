@@ -38,6 +38,12 @@ resources:
   - name: turso
     enabled: true
 
+  - name: surrealdb
+    enabled: true
+    config:
+      mode: "podman-compose"
+      storage: "named-volume"
+
   - name: nats
     enabled: true
 

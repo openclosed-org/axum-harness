@@ -12,5 +12,9 @@ features:
 
 variables:
   LOG_LEVEL: "info"
+  APP_STORE_PROVIDER: "surrealdb"
+  APP_SURREALDB_NS: "axh"
+  APP_SURREALDB_DB: "main"
+  APP_SURREALDB_TENANT_SCOPE: "platform"
   CACHE_TTL_SECONDS: "300"
   OTEL_ENABLED: "true"

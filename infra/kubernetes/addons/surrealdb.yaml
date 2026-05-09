@@ -1,0 +1,105 @@
+# SurrealDB — external database server
+#
+# Provides: SurrealQL database endpoint for Postgres-style managed datastore use
+# Port: 8000
+#
+# Runtime configuration and credentials are injected through SOPS-managed
+# Kubernetes Secrets, not .env files.
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: surrealdb
+  namespace: app
+  labels:
+    app: surrealdb
+    component: database
+spec:
+  selector:
+    app: surrealdb
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000
+      protocol: TCP
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: surrealdb
+  namespace: app
+  labels:
+    app: surrealdb
+    component: database
+spec:
+  serviceName: surrealdb
+  replicas: 1
+  selector:
+    matchLabels:
+      app: surrealdb
+  template:
+    metadata:
+      labels:
+        app: surrealdb
+        component: database
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+        fsGroupChangePolicy: OnRootMismatch
+      containers:
+        - name: surrealdb
+          image: surrealdb/surrealdb:v3.0.5
+          args:
+            - start
+            - --no-banner
+            - --log
+            - warn
+            - --user
+            - $(SURREALDB_USER)
+            - --pass
+            - $(SURREALDB_PASS)
+            - --default-namespace
+            - $(SURREALDB_NS)
+            - --default-database
+            - $(SURREALDB_DB)
+            - surrealkv:///data/database
+          envFrom:
+            - secretRef:
+                name: surrealdb-secrets
+          ports:
+            - containerPort: 8000
+              name: http
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+          volumeMounts:
+            - name: surrealdb-data
+              mountPath: /data
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 20
+            periodSeconds: 20
+  volumeClaimTemplates:
+    - metadata:
+        name: surrealdb-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 10Gi

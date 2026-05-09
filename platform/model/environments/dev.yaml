@@ -13,5 +13,9 @@ features:
 variables:
   LOG_LEVEL: "debug"
   DATABASE_URL: "file:dev.db"
+  APP_STORE_PROVIDER: "turso"
+  APP_SURREALDB_NS: "axh"
+  APP_SURREALDB_DB: "main"
+  APP_SURREALDB_TENANT_SCOPE: "platform"
   CACHE_TTL_SECONDS: "60"
   CORS_ORIGINS: "http://localhost:5173,http://localhost:1420"

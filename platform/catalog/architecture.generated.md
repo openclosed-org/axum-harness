@@ -4,7 +4,7 @@
 
 - **Services**: 5
 - **Deployables**: 8
-- **Resources**: 4
+- **Resources**: 5
 
 ## Service Registry
 

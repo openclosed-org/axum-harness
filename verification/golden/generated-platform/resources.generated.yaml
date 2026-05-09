@@ -22,6 +22,15 @@
   required_by:
   - web-bff
   - edge-gateway
+- name: surrealdb
+  type: database
+  description: |
+    External SurrealDB database server used like a Postgres-style operational datastore: managed as an independent process/container, configured through platform profiles and SOPS secrets, and accessed through repository ports.
+  technology: surrealdb
+  required_by:
+  - tenant-service
+  - counter-service
+  - user-service
 - name: turso
   type: database
   description: |

@@ -1,0 +1,48 @@
+name: surrealdb
+type: database
+description: >
+  External SurrealDB database server used like a Postgres-style operational
+  datastore: managed as an independent process/container, configured through
+  platform profiles and SOPS secrets, and accessed through repository ports.
+
+technology: surrealdb
+version: "3.0.5"
+
+adapters:
+  - packages/data-adapters/surrealdb
+
+local_dev:
+  compose_file: infra/docker/compose/core.yaml
+  profile: surrealdb
+  env_vars:
+    APP_STORE_PROVIDER: "surrealdb"
+    APP_SURREALDB_URL: "http://127.0.0.1:8000"
+    APP_SURREALDB_NS: "axh"
+    APP_SURREALDB_DB: "main"
+    APP_SURREALDB_USER: "root"
+    APP_SURREALDB_TENANT_SCOPE: "platform"
+
+single_vps:
+  runtime: podman-compose
+  storage: named-volume
+  volume: surrealdb-data
+  endpoint: "http://surrealdb:8000"
+
+k3s:
+  runtime: statefulset
+  service: surrealdb
+  storage: persistent-volume-claim
+  endpoint: "http://surrealdb.app.svc.cluster.local:8000"
+
+encryption:
+  at_rest: true
+  in_transit: false
+
+access_control:
+  rbac: true
+  abac: false
+
+required_by:
+  - tenant-service
+  - counter-service
+  - user-service

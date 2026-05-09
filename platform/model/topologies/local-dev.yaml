@@ -39,6 +39,12 @@ resources:
     config:
       mode: "embedded"
 
+  - name: surrealdb
+    enabled: false
+    config:
+      mode: "podman-compose"
+      profile: "surrealdb"
+
   - name: cache
     enabled: true
     config:

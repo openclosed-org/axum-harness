@@ -11,13 +11,13 @@ logs/
 *.db-wal
 *.db-shm
 .data/
+history.txt
 servers/bff/web-bff/file::memory*
 
 # --- Secrets / Environment ---
 .secrets/
 .env
 .env.*
-!.env.example
 infra/local/generated/
 infra/local/state/
 # SOPS plaintext templates — NEVER commit (contains secret shapes / may contain real values)

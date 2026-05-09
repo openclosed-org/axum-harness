@@ -9,6 +9,7 @@
 #   - NATS message broker (with JetStream)
 #   - Valkey/Dragonfly cache (Redis-compatible)
 #   - MinIO object storage (S3-compatible)
+#   - SurrealDB external database server (profile: surrealdb)
 #
 # Stack:
 #   - turso:8080          — Turso/libSQL embedded database with HTTP gateway
@@ -125,6 +126,39 @@ services:
         echo 'Buckets created successfully';
       "
 
+  # ── SurrealDB Database Server ──────────────────────────────
+  # Postgres-style local/single-VPS operation: independent DB server managed by
+  # Podman/Docker Compose, with named-volume persistence and explicit profile.
+  surrealdb:
+    image: surrealdb/surrealdb:v3.0.5
+    user: "0:0"
+    command:
+      - start
+      - --no-banner
+      - --log
+      - warn
+      - --user
+      - ${SURREALDB_USER:-root}
+      - --pass
+      - ${SURREALDB_PASS:-root}
+      - --default-namespace
+      - ${SURREALDB_NS:-axh}
+      - --default-database
+      - ${SURREALDB_DB:-main}
+      - surrealkv:///data/database
+    ports:
+      - "8000:8000"
+    volumes:
+      - surrealdb-data:/data
+    healthcheck:
+      test: ["CMD", "surreal", "is-ready", "--endpoint", "http://localhost:8000"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    profiles:
+      - surrealdb
+
 volumes:
   turso-data:
     driver: local
@@ -133,4 +167,6 @@ volumes:
   valkey-data:
     driver: local
   minio-data:
+    driver: local
+  surrealdb-data:
     driver: local
