@@ -9,7 +9,6 @@ use axum::{
 };
 use contracts_api::{UserProfileResponse, UserTenantResponse};
 use contracts_errors::ErrorResponse;
-use user_service::ports::{TenantRepository, UserRepository, UserTenantRepository};
 use utoipa_axum::{router::OpenApiRouter, routes};
 
 use crate::error::{BffError, BffResult};

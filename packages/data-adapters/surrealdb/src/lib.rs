@@ -1,360 +1,386 @@
-//! Tenant-aware SurrealDB wrapper implementing SurrealDbPort.
+//! SurrealDB external database adapter.
 //!
-//! Automatically injects `tenant_id` filters into all queries to enforce
-//! multi-tenant data isolation at the implementation layer (D-11: trait unchanged).
+//! The default transport targets an external SurrealDB server over HTTP. This
+//! keeps local, single-VPS, and k3s deployments aligned with the normal
+//! database-server model and avoids compiling SurrealDB's Rust SDK in default
+//! checks.
 
 use async_trait::async_trait;
-use data_traits::ports::surreal_db::{SurrealDbPort, SurrealError};
+use data_traits::ports::surreal_db::{
+    SurrealAdminMarker, SurrealDbPort, SurrealError, TenantQueryOperation,
+};
 use kernel::TenantId;
+use serde::Deserialize;
 use serde::de::DeserializeOwned;
-use std::collections::BTreeMap;
-use surrealdb::{Surreal, engine::any::Any};
 
-/// SurrealDbPort implementation with automatic tenant_id injection.
-///
-/// All SELECT queries get `AND tenant_id = $tenant_id` appended.
-/// All CREATE queries get `tenant_id = $tenant_id` added to SET clause.
-/// UPDATE/DELETE get `WHERE tenant_id = $tenant_id` appended.
-///
-/// When tenant_id is None (admin mode), queries pass through unchanged.
-#[derive(Clone)]
-pub struct TenantAwareSurrealDb {
-    db: Surreal<Any>,
-    tenant_id: Option<String>,
-}
+#[cfg(feature = "http")]
+mod http_transport {
+    use super::*;
 
-impl TenantAwareSurrealDb {
-    /// Create a tenant-scoped instance — all queries auto-filtered.
-    pub fn new(db: Surreal<Any>, tenant_id: TenantId) -> Self {
-        Self {
-            db,
-            tenant_id: Some(tenant_id.0),
+    pub const DEFAULT_NAMESPACE: &str = "axh";
+    pub const DEFAULT_DATABASE: &str = "main";
+    pub const DEFAULT_TENANT_SCOPE: &str = "platform";
+
+    #[derive(Debug, Clone)]
+    pub struct ExternalSurrealDb {
+        client: reqwest::Client,
+        endpoint: String,
+        namespace: String,
+        database: String,
+        username: String,
+        password: String,
+        tenant_id: Option<String>,
+    }
+
+    impl ExternalSurrealDb {
+        pub fn new(endpoint: impl Into<String>, tenant_id: TenantId) -> Self {
+            Self::new_with_auth(
+                endpoint,
+                DEFAULT_NAMESPACE,
+                DEFAULT_DATABASE,
+                "root",
+                "root",
+                Some(tenant_id.0),
+            )
         }
-    }
 
-    /// Create an admin (unscoped) instance — no tenant filtering.
-    pub fn new_admin(db: Surreal<Any>) -> Self {
-        Self {
-            db,
-            tenant_id: None,
+        pub fn new_admin(endpoint: impl Into<String>) -> Self {
+            Self::new_with_auth(
+                endpoint,
+                DEFAULT_NAMESPACE,
+                DEFAULT_DATABASE,
+                "root",
+                "root",
+                None,
+            )
         }
-    }
 
-    /// Get the tenant_id if scoped.
-    pub fn tenant_id(&self) -> Option<&str> {
-        self.tenant_id.as_deref()
-    }
-
-    /// Inject tenant_id filter into a SurrealQL query string.
-    ///
-    /// WARNING: This uses simple string matching and does NOT parse SQL properly.
-    /// It can be fooled by SQL string literals containing keywords like "WHERE".
-    /// The primary defense against injection is parameterized queries — always use
-    /// $param placeholders instead of string interpolation for user input.
-    ///
-    /// - SELECT without WHERE → append `WHERE tenant_id = $tenant_id`
-    /// - SELECT with WHERE → append `AND tenant_id = $tenant_id`
-    /// - CREATE → append `, tenant_id = $tenant_id` to SET clause
-    /// - UPDATE/DELETE with WHERE → append `AND tenant_id = $tenant_id`
-    /// - UPDATE/DELETE without WHERE → append `WHERE tenant_id = $tenant_id`
-    pub fn inject_tenant_filter(sql: &str) -> String {
-        let sql_upper = sql.to_uppercase();
-        let sql_trimmed = sql.trim();
-
-        if sql_upper.starts_with("SELECT") {
-            // Find WHERE keyword position
-            if let Some(where_pos) = sql_upper.find("WHERE") {
-                // Split: ...before WHERE... WHERE condition...
-                // Insert: ...before WHERE... tenant_id = $tenant_id AND condition...
-                let before_where = &sql_trimmed[..where_pos]; // up to WHERE
-                let after_where_kw = &sql_trimmed[where_pos + 5..]; // after WHERE (the condition)
-                format!(
-                    "{}WHERE tenant_id = $tenant_id AND {}",
-                    before_where,
-                    after_where_kw.trim_start()
-                )
-            } else {
-                // No WHERE — insert before GROUP BY / ORDER BY / LIMIT / etc.
-                let insert_pos = Self::find_clause_insert_pos(sql_trimmed, &sql_upper);
-                let before = &sql_trimmed[..insert_pos];
-                let after = &sql_trimmed[insert_pos..];
-                format!("{} WHERE tenant_id = $tenant_id {}", before, after)
-                    .trim()
-                    .to_string()
+        pub fn new_with_auth(
+            endpoint: impl Into<String>,
+            namespace: impl Into<String>,
+            database: impl Into<String>,
+            username: impl Into<String>,
+            password: impl Into<String>,
+            tenant_id: Option<String>,
+        ) -> Self {
+            Self {
+                client: reqwest::Client::new(),
+                endpoint: endpoint.into().trim_end_matches('/').to_string(),
+                namespace: namespace.into(),
+                database: database.into(),
+                username: username.into(),
+                password: password.into(),
+                tenant_id,
             }
-        } else if sql_upper.starts_with("CREATE") || sql_upper.starts_with("INSERT") {
-            if sql_upper.contains("SET") {
-                if let Some(return_pos) = sql_upper.find(" RETURN") {
-                    let before = &sql_trimmed[..return_pos];
-                    let after = &sql_trimmed[return_pos..];
-                    format!("{}, tenant_id = $tenant_id {}", before, after)
-                } else {
-                    format!("{}, tenant_id = $tenant_id", sql_trimmed)
+        }
+
+        pub fn tenant_id(&self) -> Option<&str> {
+            self.tenant_id.as_deref()
+        }
+
+        async fn execute_sql<T: DeserializeOwned + Send + Sync>(
+            &self,
+            sql: &str,
+        ) -> Result<Vec<T>, SurrealError> {
+            let response = self
+                .client
+                .post(format!("{}/sql", self.endpoint))
+                .basic_auth(&self.username, Some(&self.password))
+                .header("Surreal-NS", &self.namespace)
+                .header("Surreal-DB", &self.database)
+                .header(reqwest::header::ACCEPT, "application/json")
+                .body(sql.to_string())
+                .send()
+                .await?;
+
+            let status = response.status();
+            let body = response.text().await?;
+            if !status.is_success() {
+                return Err(Box::new(ExternalSurrealError::Http { status, body }));
+            }
+
+            let results: Vec<SurrealSqlResult> = serde_json::from_str(&body)?;
+            if results.is_empty() {
+                return Ok(Vec::new());
+            }
+
+            for result in &results {
+                if result.status == "OK" {
+                    continue;
                 }
-            } else {
-                format!("{}, tenant_id = $tenant_id", sql_trimmed)
+                return Err(Box::new(ExternalSurrealError::Query {
+                    detail: result.error_detail(),
+                }));
             }
-        } else if sql_upper.starts_with("UPDATE") || sql_upper.starts_with("DELETE") {
-            if let Some(where_pos) = sql_upper.find("WHERE") {
-                let before_where = &sql_trimmed[..where_pos];
-                let after_where_kw = &sql_trimmed[where_pos + 5..];
-                format!(
-                    "{}WHERE tenant_id = $tenant_id AND {}",
-                    before_where,
-                    after_where_kw.trim_start()
-                )
-            } else if let Some(return_pos) = sql_upper.find(" RETURN") {
-                let before = &sql_trimmed[..return_pos];
-                let after = &sql_trimmed[return_pos..];
-                format!("{} WHERE tenant_id = $tenant_id {}", before, after)
-            } else {
-                format!("{} WHERE tenant_id = $tenant_id", sql_trimmed)
+
+            let Some(value) = results.into_iter().rev().find_map(|result| result.result) else {
+                return Ok(Vec::new());
+            };
+            if value.is_null() {
+                return Ok(Vec::new());
             }
-        } else {
-            sql_trimmed.to_string()
+            Ok(serde_json::from_value(value)?)
         }
     }
 
-    /// Find the position to insert WHERE clause before GROUP BY, ORDER BY, LIMIT, etc.
-    fn find_clause_insert_pos(sql: &str, sql_upper: &str) -> usize {
-        let clauses = [" GROUP BY", " ORDER BY", " LIMIT", " START", " FETCH"];
-        let mut earliest = sql.len();
-        for clause in &clauses {
-            if let Some(pos) = sql_upper.find(clause)
-                && pos < earliest
-            {
-                earliest = pos;
+    #[async_trait]
+    impl SurrealDbPort for ExternalSurrealDb {
+        async fn health_check(&self) -> Result<(), SurrealError> {
+            let response = self
+                .client
+                .get(format!("{}/health", self.endpoint))
+                .send()
+                .await?;
+            if !response.status().is_success() {
+                return Err(Box::new(ExternalSurrealError::Health(response.status())));
+            }
+            Ok(())
+        }
+
+        async fn tenant_query<T: DeserializeOwned + Send + Sync>(
+            &self,
+            operation: TenantQueryOperation,
+        ) -> Result<Vec<T>, SurrealError> {
+            let Some(tenant_id) = self.tenant_id() else {
+                return Err(Box::new(ExternalSurrealError::MissingTenant));
+            };
+            let sql = operation.to_surrealql(tenant_id)?;
+            self.execute_sql(&sql).await
+        }
+
+        async fn unsafe_admin_query<T: DeserializeOwned + Send + Sync>(
+            &self,
+            _marker: SurrealAdminMarker,
+            sql: &str,
+        ) -> Result<Vec<T>, SurrealError> {
+            self.execute_sql(sql).await
+        }
+    }
+
+    #[derive(Debug, Deserialize)]
+    struct SurrealSqlResult {
+        status: String,
+        result: Option<serde_json::Value>,
+        detail: Option<String>,
+    }
+
+    impl SurrealSqlResult {
+        fn error_detail(&self) -> String {
+            self.detail.clone().unwrap_or_else(|| match &self.result {
+                Some(value) if !value.is_null() => value.to_string(),
+                _ => "SurrealDB query failed".to_string(),
+            })
+        }
+    }
+
+    #[derive(Debug)]
+    enum ExternalSurrealError {
+        Health(reqwest::StatusCode),
+        Http {
+            status: reqwest::StatusCode,
+            body: String,
+        },
+        Query {
+            detail: String,
+        },
+        MissingTenant,
+    }
+
+    impl std::fmt::Display for ExternalSurrealError {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            match self {
+                Self::Health(status) => write!(f, "SurrealDB health check failed: {status}"),
+                Self::Http { status, body } => write!(f, "SurrealDB HTTP error {status}: {body}"),
+                Self::Query { detail } => write!(f, "SurrealDB query error: {detail}"),
+                Self::MissingTenant => f.write_str("tenant query requires a tenant-scoped adapter"),
             }
         }
-        earliest
     }
+
+    impl std::error::Error for ExternalSurrealError {}
 }
 
-/// Convert a serde_json::Value to surrealdb::types::Value.
-/// Handles common cases: strings (including RecordId parsing), numbers, bools, null.
-fn json_to_surreal_value(v: serde_json::Value) -> surrealdb::types::Value {
-    match v {
-        serde_json::Value::Null => surrealdb::types::Value::Null,
-        serde_json::Value::Bool(b) => surrealdb::types::Value::Bool(b),
-        serde_json::Value::Number(n) => {
-            if let Some(i) = n.as_i64() {
-                surrealdb::types::Value::Number(surrealdb::types::Number::Int(i))
-            } else if let Some(f) = n.as_f64() {
-                surrealdb::types::Value::Number(surrealdb::types::Number::Float(f))
-            } else {
-                surrealdb::types::Value::Null
-            }
-        }
-        serde_json::Value::String(s) => {
-            // Try to parse as RecordId (e.g., "table:key")
-            if let Ok(rid) = surrealdb::types::RecordId::parse_simple(&s) {
-                surrealdb::types::Value::RecordId(rid)
-            } else {
-                surrealdb::types::Value::String(s)
-            }
-        }
-        serde_json::Value::Array(_) | serde_json::Value::Object(_) => {
-            // For complex types, fall back to string serialization
-            // The SurrealDB query engine will deserialize on its side
-            surrealdb::types::Value::String(v.to_string())
-        }
-    }
+#[cfg(feature = "http")]
+pub use http_transport::ExternalSurrealDb;
+
+/// Default adapter name for the external-server SurrealDB database provider.
+#[cfg(feature = "http")]
+pub type TenantAwareSurrealDb = ExternalSurrealDb;
+
+pub const DEFAULT_NAMESPACE: &str = http_transport::DEFAULT_NAMESPACE;
+pub const DEFAULT_DATABASE: &str = http_transport::DEFAULT_DATABASE;
+pub const DEFAULT_TENANT_SCOPE: &str = http_transport::DEFAULT_TENANT_SCOPE;
+
+const TENANT_TABLE_MIGRATION: &str = "DEFINE TABLE IF NOT EXISTS tenant SCHEMAFULL;\nDEFINE FIELD IF NOT EXISTS tenant_scope ON TABLE tenant TYPE string;\nDEFINE FIELD IF NOT EXISTS tenant_key ON TABLE tenant TYPE string;\nDEFINE FIELD IF NOT EXISTS name ON TABLE tenant TYPE string;\nDEFINE FIELD IF NOT EXISTS created_at ON TABLE tenant TYPE datetime DEFAULT time::now();\nDEFINE INDEX IF NOT EXISTS tenant_scope_key_idx ON TABLE tenant COLUMNS tenant_scope, tenant_key UNIQUE;";
+
+const USER_TABLE_MIGRATION: &str = "DEFINE TABLE IF NOT EXISTS user SCHEMAFULL;\nDEFINE FIELD IF NOT EXISTS tenant_scope ON TABLE user TYPE string;\nDEFINE FIELD IF NOT EXISTS user_key ON TABLE user TYPE string;\nDEFINE FIELD IF NOT EXISTS user_sub ON TABLE user TYPE string;\nDEFINE FIELD IF NOT EXISTS display_name ON TABLE user TYPE string;\nDEFINE FIELD IF NOT EXISTS email ON TABLE user TYPE option<string>;\nDEFINE FIELD IF NOT EXISTS created_at ON TABLE user TYPE datetime DEFAULT time::now();\nDEFINE FIELD IF NOT EXISTS last_login_at ON TABLE user TYPE option<datetime>;\nDEFINE INDEX IF NOT EXISTS user_scope_sub_idx ON TABLE user COLUMNS tenant_scope, user_sub UNIQUE;\nDEFINE INDEX IF NOT EXISTS user_scope_key_idx ON TABLE user COLUMNS tenant_scope, user_key UNIQUE;";
+
+const USER_TENANT_TABLE_MIGRATION: &str = "DEFINE TABLE IF NOT EXISTS user_tenant SCHEMAFULL;\nDEFINE FIELD IF NOT EXISTS tenant_scope ON TABLE user_tenant TYPE string;\nDEFINE FIELD IF NOT EXISTS tenant_id ON TABLE user_tenant TYPE string;\nDEFINE FIELD IF NOT EXISTS user_sub ON TABLE user_tenant TYPE string;\nDEFINE FIELD IF NOT EXISTS role ON TABLE user_tenant TYPE string DEFAULT 'member';\nDEFINE FIELD IF NOT EXISTS joined_at ON TABLE user_tenant TYPE datetime DEFAULT time::now();\nDEFINE INDEX IF NOT EXISTS user_tenant_lookup ON TABLE user_tenant COLUMNS tenant_scope, user_sub UNIQUE;\nDEFINE INDEX IF NOT EXISTS user_tenant_tenant_idx ON TABLE user_tenant COLUMNS tenant_scope, tenant_id;";
+
+const COUNTER_TABLE_MIGRATION: &str = "DEFINE TABLE IF NOT EXISTS counter SCHEMAFULL;\nDEFINE FIELD IF NOT EXISTS tenant_scope ON TABLE counter TYPE string;\nDEFINE FIELD IF NOT EXISTS counter_key ON TABLE counter TYPE string;\nDEFINE FIELD IF NOT EXISTS value ON TABLE counter TYPE int DEFAULT 0;\nDEFINE FIELD IF NOT EXISTS version ON TABLE counter TYPE int DEFAULT 0;\nDEFINE FIELD IF NOT EXISTS updated_at ON TABLE counter TYPE datetime DEFAULT time::now();\nDEFINE INDEX IF NOT EXISTS counter_scope_key_idx ON TABLE counter COLUMNS tenant_scope, counter_key UNIQUE;\nDEFINE TABLE IF NOT EXISTS counter_idempotency SCHEMAFULL;\nDEFINE FIELD IF NOT EXISTS tenant_scope ON TABLE counter_idempotency TYPE string;\nDEFINE FIELD IF NOT EXISTS counter_key ON TABLE counter_idempotency TYPE string;\nDEFINE FIELD IF NOT EXISTS idempotency_key ON TABLE counter_idempotency TYPE string;\nDEFINE FIELD IF NOT EXISTS request_hash ON TABLE counter_idempotency TYPE string;\nDEFINE FIELD IF NOT EXISTS operation ON TABLE counter_idempotency TYPE string;\nDEFINE FIELD IF NOT EXISTS status ON TABLE counter_idempotency TYPE string;\nDEFINE FIELD IF NOT EXISTS result_value ON TABLE counter_idempotency TYPE option<int>;\nDEFINE FIELD IF NOT EXISTS result_version ON TABLE counter_idempotency TYPE option<int>;\nDEFINE FIELD IF NOT EXISTS completed_at ON TABLE counter_idempotency TYPE option<datetime>;\nDEFINE INDEX IF NOT EXISTS counter_idempotency_scope_key_idx ON TABLE counter_idempotency COLUMNS tenant_scope, counter_key, idempotency_key UNIQUE;";
+
+const EVENT_OUTBOX_TABLE_MIGRATION: &str = "DEFINE TABLE IF NOT EXISTS event_outbox SCHEMAFULL;\nDEFINE FIELD IF NOT EXISTS tenant_scope ON TABLE event_outbox TYPE string;\nDEFINE FIELD IF NOT EXISTS event_id ON TABLE event_outbox TYPE string;\nDEFINE FIELD IF NOT EXISTS event_type ON TABLE event_outbox TYPE string;\nDEFINE FIELD IF NOT EXISTS event_payload ON TABLE event_outbox TYPE string;\nDEFINE FIELD IF NOT EXISTS source_service ON TABLE event_outbox TYPE string;\nDEFINE FIELD IF NOT EXISTS correlation_id ON TABLE event_outbox TYPE option<string>;\nDEFINE FIELD IF NOT EXISTS status ON TABLE event_outbox TYPE string DEFAULT 'pending';\nDEFINE FIELD IF NOT EXISTS created_at ON TABLE event_outbox TYPE datetime DEFAULT time::now();\nDEFINE INDEX IF NOT EXISTS event_outbox_event_id_idx ON TABLE event_outbox COLUMNS tenant_scope, event_id UNIQUE;";
+
+const GRAPH_AND_LIVE_MIGRATION: &str = "DEFINE TABLE IF NOT EXISTS tenant_edge SCHEMAFULL TYPE RELATION IN tenant OUT tenant;\nDEFINE FIELD IF NOT EXISTS tenant_scope ON TABLE tenant_edge TYPE string;\nDEFINE INDEX IF NOT EXISTS tenant_edge_idx ON TABLE tenant_edge COLUMNS tenant_scope;\nDEFINE TABLE IF NOT EXISTS live_event SCHEMAFULL;\nDEFINE FIELD IF NOT EXISTS tenant_scope ON TABLE live_event TYPE string;\nDEFINE FIELD IF NOT EXISTS payload ON TABLE live_event TYPE object FLEXIBLE;\nDEFINE INDEX IF NOT EXISTS live_event_scope_idx ON TABLE live_event COLUMNS tenant_scope;";
+
+/// Versioned migration statements for the SurrealDB database provider.
+pub const TENANT_MIGRATIONS: &[(&str, &str)] = &[
+    ("0001_tenant_tables", TENANT_TABLE_MIGRATION),
+    ("0002_user_tables", USER_TABLE_MIGRATION),
+    ("0003_user_tenant_bindings", USER_TENANT_TABLE_MIGRATION),
+    ("0004_counter_tables", COUNTER_TABLE_MIGRATION),
+    ("0005_event_outbox", EVENT_OUTBOX_TABLE_MIGRATION),
+    ("0006_graph_and_live_boundaries", GRAPH_AND_LIVE_MIGRATION),
+];
+
+pub fn migration_dry_run() -> Vec<MigrationPreview> {
+    TENANT_MIGRATIONS
+        .iter()
+        .map(|(version, sql)| MigrationPreview {
+            version: (*version).to_string(),
+            sql: (*sql).to_string(),
+        })
+        .collect()
 }
 
-#[async_trait]
-impl SurrealDbPort for TenantAwareSurrealDb {
-    async fn health_check(&self) -> Result<(), SurrealError> {
-        self.db
-            .health()
-            .await
-            .map_err(|e| Box::new(e) as SurrealError)
-    }
-
-    async fn query<T: DeserializeOwned + Send + Sync>(
-        &self,
-        sql: &str,
-        mut vars: BTreeMap<String, serde_json::Value>,
-    ) -> Result<Vec<T>, SurrealError> {
-        // 1. Inject tenant_id into vars if scoped
-        if let Some(ref tid) = self.tenant_id {
-            vars.insert("tenant_id".into(), serde_json::Value::String(tid.clone()));
-        }
-
-        // 2. Rewrite SQL if tenant-scoped
-        let scoped_sql = if self.tenant_id.is_some() {
-            Self::inject_tenant_filter(sql)
-        } else {
-            sql.to_string()
-        };
-
-        // 3. Convert serde_json::Value map → surrealdb bind map
-        let bind_map: BTreeMap<String, surrealdb::types::Value> = vars
-            .into_iter()
-            .map(|(k, v)| (k, json_to_surreal_value(v)))
-            .collect();
-
-        // 4. Execute query — take as serde_json::Value (implements SurrealValue)
-        let mut response = self.db.query(&scoped_sql).bind(bind_map).await?;
-        let raw: Vec<serde_json::Value> = response.take(0)?;
-
-        // 5. Deserialize each element to T
-        raw.into_iter()
-            .map(|v| serde_json::from_value(v).map_err(|e| Box::new(e) as SurrealError))
-            .collect()
-    }
-}
-
-/// Run tenant schema migrations on the given SurrealDB connection.
-///
-/// Defines: tenant table, user_tenant table, indexes.
-/// Safe to call multiple times (DEFINE TABLE is idempotent with SCHEMAFULL).
-pub async fn run_tenant_migrations(db: &Surreal<Any>) -> Result<(), SurrealError> {
-    db.query(
-        "
-        DEFINE TABLE tenant SCHEMAFULL;
-        DEFINE FIELD name ON TABLE tenant TYPE string;
-        DEFINE FIELD created_at ON TABLE tenant TYPE datetime DEFAULT time::now();
-
-        DEFINE TABLE user_tenant SCHEMAFULL;
-        DEFINE FIELD user_sub ON TABLE user_tenant TYPE string;
-        DEFINE FIELD tenant_id ON TABLE user_tenant TYPE record<tenant>;
-        DEFINE FIELD role ON TABLE user_tenant TYPE string DEFAULT 'member';
-        DEFINE FIELD joined_at ON TABLE user_tenant TYPE datetime DEFAULT time::now();
-
-        DEFINE INDEX user_sub_unique ON TABLE user_tenant COLUMNS user_sub UNIQUE;
-        DEFINE INDEX tenant_idx ON TABLE user_tenant COLUMNS tenant_id;
-    ",
+pub fn backup_command(endpoint: &str, namespace: &str, database: &str, output: &str) -> String {
+    format!(
+        "surreal export --conn {endpoint} --ns {namespace} --db {database} --user root --pass root {output}"
     )
-    .await?
-    .check()?;
+}
 
-    Ok(())
+pub fn restore_command(endpoint: &str, namespace: &str, database: &str, input: &str) -> String {
+    format!(
+        "surreal import --conn {endpoint} --ns {namespace} --db {database} --user root --pass root {input}"
+    )
+}
+
+pub fn restore_verification_query() -> TenantQueryOperation {
+    TenantQueryOperation::select("tenant", Vec::new(), Default::default(), None, Some(1))
+        .expect("static restore verification query is valid")
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MigrationPreview {
+    pub version: String,
+    pub sql: String,
+}
+
+#[cfg(feature = "sdk")]
+pub mod sdk {
+    //! Optional SDK lane. This module intentionally has no default implementation
+    //! so default checks do not compile SurrealDB's Rust SDK.
+    pub use surrealdb;
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use data_traits::ports::surreal_db::{
+        SurrealFieldValue, SurrealOrderDirection, SurrealQueryBuildError,
+    };
+    use std::collections::BTreeMap;
 
     #[test]
-    fn inject_select_no_where() {
-        let sql = "SELECT * FROM counter";
-        let result = TenantAwareSurrealDb::inject_tenant_filter(sql);
-        assert!(result.contains("WHERE tenant_id = $tenant_id"));
+    fn tenant_select_builds_tenant_scoped_query() {
+        let operation = TenantQueryOperation::select(
+            "tenant",
+            vec!["id".into(), "name".into()],
+            BTreeMap::from([(
+                "tenant_key".to_string(),
+                serde_json::json!("tenant-a").into(),
+            )]),
+            Some(("created_at".into(), SurrealOrderDirection::Desc)),
+            Some(1),
+        )
+        .unwrap();
+
+        let sql = operation.to_surrealql("tenant-a").unwrap();
+
+        assert!(sql.contains("tenant_scope = \"tenant-a\""));
+        assert!(sql.contains("tenant_key = \"tenant-a\""));
+        assert!(sql.contains("ORDER BY created_at DESC"));
+        assert!(!sql.contains("$tenant_scope"));
     }
 
     #[test]
-    fn inject_create_set() {
-        let sql = "CREATE counter SET name = $name, count = 0";
-        let result = TenantAwareSurrealDb::inject_tenant_filter(sql);
-        assert!(result.contains("tenant_id = $tenant_id"));
+    fn tenant_create_rejects_caller_supplied_scope() {
+        let err = TenantQueryOperation::create(
+            "tenant",
+            BTreeMap::from([("tenant_scope".to_string(), serde_json::json!("evil").into())]),
+        )
+        .unwrap_err();
+
+        assert_eq!(err, SurrealQueryBuildError::ReservedTenantField);
     }
 
     #[test]
-    fn inject_update_with_where() {
-        let sql = "UPDATE counter SET count += 1 WHERE id = $id";
-        let result = TenantAwareSurrealDb::inject_tenant_filter(sql);
-        assert!(result.contains("tenant_id = $tenant_id AND"));
-        assert!(result.contains("id = $id"));
+    fn graph_traversal_keeps_edge_and_target_tenant_scoped() {
+        let sql = TenantQueryOperation::graph_traverse(
+            "tenant",
+            serde_json::json!("tenant-a"),
+            "tenant_edge",
+            "tenant",
+        )
+        .unwrap()
+        .to_surrealql("tenant-a")
+        .unwrap();
+
+        assert!(sql.contains("->tenant_edge[WHERE tenant_scope = \"tenant-a\"]"));
+        assert!(sql.contains("->tenant[WHERE tenant_scope = \"tenant-a\"]"));
+        assert!(sql.ends_with("WHERE tenant_scope = \"tenant-a\""));
     }
 
     #[test]
-    fn inject_delete_with_where() {
-        let sql = "DELETE FROM counter WHERE id = $id";
-        let result = TenantAwareSurrealDb::inject_tenant_filter(sql);
-        assert!(result.contains("tenant_id = $tenant_id AND"));
-        assert!(result.contains("id = $id"));
-    }
+    fn live_query_is_tenant_scoped() {
+        let sql = TenantQueryOperation::live_table("live_event", BTreeMap::new())
+            .unwrap()
+            .to_surrealql("tenant-a")
+            .unwrap();
 
-    #[test]
-    fn inject_select_with_where() {
-        let sql = "SELECT * FROM counter WHERE user = $user";
-        let result = TenantAwareSurrealDb::inject_tenant_filter(sql);
-        assert!(result.contains("tenant_id = $tenant_id AND"));
-        assert!(result.contains("user = $user"));
-    }
-
-    #[test]
-    fn inject_select_with_order_by() {
-        let sql = "SELECT * FROM counter ORDER BY created_at DESC";
-        let result = TenantAwareSurrealDb::inject_tenant_filter(sql);
-        assert!(
-            result.contains("WHERE tenant_id = $tenant_id"),
-            "missing WHERE clause: {result}"
-        );
-        assert!(
-            result.contains("ORDER BY created_at DESC"),
-            "missing ORDER BY: {result}"
-        );
-    }
-
-    #[test]
-    fn admin_mode_no_injection() {
-        let sql = "SELECT * FROM counter";
-        assert!(!sql.contains("tenant_id"));
-    }
-
-    #[test]
-    fn json_value_null() {
-        let result = json_to_surreal_value(serde_json::Value::Null);
-        assert!(matches!(result, surrealdb::types::Value::Null));
-    }
-
-    #[test]
-    fn json_value_bool() {
-        let result = json_to_surreal_value(serde_json::Value::Bool(true));
-        assert!(matches!(result, surrealdb::types::Value::Bool(true)));
-    }
-
-    #[test]
-    fn json_value_integer() {
-        let result = json_to_surreal_value(serde_json::json!(42));
-        assert!(matches!(
-            result,
-            surrealdb::types::Value::Number(surrealdb::types::Number::Int(42))
-        ));
-    }
-
-    #[test]
-    fn json_value_float() {
-        let result = json_to_surreal_value(serde_json::json!(std::f64::consts::PI));
-        assert!(
-            matches!(result, surrealdb::types::Value::Number(surrealdb::types::Number::Float(f)) if (f - std::f64::consts::PI).abs() < 0.001)
+        assert_eq!(
+            sql,
+            "LIVE SELECT * FROM live_event WHERE tenant_scope = \"tenant-a\""
         );
     }
 
     #[test]
-    fn json_value_string() {
-        let result = json_to_surreal_value(serde_json::Value::String("hello".into()));
-        assert!(matches!(result, surrealdb::types::Value::String(s) if s == "hello"));
+    fn migration_dry_run_is_versioned() {
+        let preview = migration_dry_run();
+
+        assert_eq!(preview.len(), 6);
+        assert_eq!(preview[0].version, "0001_tenant_tables");
+        assert!(preview[0].sql.contains("DEFINE TABLE IF NOT EXISTS tenant"));
+        assert_eq!(preview[3].version, "0004_counter_tables");
+        assert!(
+            preview[3]
+                .sql
+                .contains("DEFINE TABLE IF NOT EXISTS counter")
+        );
     }
 
     #[test]
-    fn json_value_record_id_string() {
-        let result = json_to_surreal_value(serde_json::Value::String("tenant:abc123".into()));
-        assert!(matches!(result, surrealdb::types::Value::RecordId(_)));
+    fn restore_verification_is_tenant_typed() {
+        let sql = restore_verification_query()
+            .to_surrealql("tenant-a")
+            .unwrap();
+
+        assert_eq!(
+            sql,
+            "SELECT * FROM tenant WHERE tenant_scope = \"tenant-a\" LIMIT 1"
+        );
     }
 
     #[test]
-    fn json_value_array_falls_back_to_string() {
-        let result = json_to_surreal_value(serde_json::json!([1, 2, 3]));
-        assert!(matches!(result, surrealdb::types::Value::String(_)));
-    }
+    fn time_now_is_rendered_as_surrealql_function() {
+        let sql = TenantQueryOperation::create(
+            "tenant",
+            BTreeMap::from([("created_at".to_string(), SurrealFieldValue::TimeNow)]),
+        )
+        .unwrap()
+        .to_surrealql("tenant-a")
+        .unwrap();
 
-    #[test]
-    fn json_value_object_falls_back_to_string() {
-        let result = json_to_surreal_value(serde_json::json!({"key": "value"}));
-        assert!(matches!(result, surrealdb::types::Value::String(_)));
-    }
-
-    #[test]
-    fn json_value_empty_array() {
-        let result = json_to_surreal_value(serde_json::json!([]));
-        assert!(matches!(result, surrealdb::types::Value::String(_)));
-    }
-
-    #[test]
-    fn json_value_empty_object() {
-        let result = json_to_surreal_value(serde_json::json!({}));
-        assert!(matches!(result, surrealdb::types::Value::String(_)));
+        assert!(sql.contains("created_at: time::now()"));
     }
 }

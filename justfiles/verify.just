@@ -111,7 +111,8 @@ test-app-e2e:
 _primary_packages := '-p kernel -p platform -p runtime -p contracts_api -p contracts_events -p contracts_errors -p adapter-telemetry-otel -p adapter-telemetry-tracing -p storage_turso -p user-service -p tenant-service -p counter-service -p event-bus -p web-bff -p data -p observability'
 _auth_optional_packages := '-p contracts_auth -p adapter-google-backend -p auth-service -p authz'
 _secondary_packages := '-p pingora-gateway -p outbox-relay-worker -p indexer-worker -p projector-worker -p scheduler-worker -p sync-reconciler-worker -p platform-validator -p dependency-validator -p contract-drift-detector -p topology-validator -p security-validator -p observability-validator -p platform-generator'
-_alternative_packages := '-p tenant-service -p storage_surrealdb'
+_alternative_fmt_packages := '-p tenant-service -p user-service -p counter-service -p web-bff -p storage_surrealdb'
+_alternative_packages := '-p tenant-service -p user-service -p counter-service -p web-bff -p storage_surrealdb --no-default-features --features web-bff/surrealdb,storage_surrealdb/http'
 
 # 可选 auth lane 静态检查（不阻塞默认主链）
 verify-auth-optional:
@@ -127,7 +128,7 @@ verify-backend-secondary:
 
 # 备选 lane 静态检查
 verify-backend-alternative:
-    cargo fmt {{_alternative_packages}} -- --check
+    cargo fmt {{_alternative_fmt_packages}} -- --check
     cargo clippy {{_alternative_packages}} --all-targets -- -D warnings
     cargo check {{_alternative_packages}}
 
@@ -157,7 +158,20 @@ test-backend-secondary:
 
 # 备选 lane 测试
 test-backend-alternative:
-    cargo test -p tenant-service -p storage_surrealdb -- --test-threads=4
+    cargo test -p tenant-service -p user-service -p counter-service -p web-bff -p storage_surrealdb --no-default-features --features web-bff/surrealdb,storage_surrealdb/http -- --test-threads=4
+
+# Local SurrealDB server integration test. Requires an external server, e.g.:
+# surreal start --no-banner --log warn --user root --pass root --default-namespace axh --default-database main memory
+test-surrealdb-local:
+    cargo test -p storage_surrealdb --no-default-features --features http --test external_http -- --ignored --test-threads=1
+
+# Local BFF SurrealDB integration test. Requires the same external server as test-surrealdb-local.
+test-surrealdb-bff-local:
+    cargo test -p web-bff --no-default-features --features web-bff/surrealdb --test surrealdb_tenant_store_test -- --ignored --test-threads=1
+
+# SurrealDB SDK lane is explicit because it compiles the heavy upstream Rust SDK.
+test-surrealdb-sdk-experimental:
+    cargo test -p storage_surrealdb --no-default-features --features sdk -- --test-threads=4
 
 # Local gate: strict mode blocks commits that violate boundaries
 gate-local:

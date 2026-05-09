@@ -9,15 +9,16 @@ use counter_service::{
     application::RepositoryBackedCounterService, infrastructure::LibSqlCounterRepository,
 };
 use data::ports::lib_sql::LibSqlPort;
+#[cfg(feature = "surrealdb")]
+use data::ports::surreal_db::{SurrealAdminMarker, SurrealDbPort};
 use moka::future::Cache;
 use std::sync::Arc;
+#[cfg(feature = "surrealdb")]
+use storage_surrealdb::{ExternalSurrealDb, TENANT_MIGRATIONS};
 use storage_turso::{EmbeddedTurso, TursoBackend, TursoCloud};
-use tenant_service::{
-    application::TenantService,
-    infrastructure::libsql_adapter::LibSqlTenantRepository as TenantServiceRepository,
-};
+use tenant_service::{application::TenantService, infrastructure::LibSqlTenantRepository};
 use user_service::infrastructure::{
-    LibSqlTenantRepository as UserTenantInfoRepository, LibSqlUserRepository,
+    LibSqlTenantRepository as UserLibSqlTenantRepository, LibSqlUserRepository,
     LibSqlUserTenantRepository,
 };
 
@@ -25,7 +26,7 @@ pub async fn bootstrap_bff_state(config: Config) -> anyhow::Result<BffState> {
     config.validate_runtime()?;
     let db = initialize_database(&config).await?;
     let authz = build_authz_adapter(&config)?;
-    let composition = build_composition_root(db.clone());
+    let composition = build_composition_root(&config, db.clone()).await?;
     let http_client = build_http_client();
     let oidc_verifier = build_oidc_verifier(&config, http_client.clone());
 
@@ -48,7 +49,7 @@ pub async fn bootstrap_test_state(db: EmbeddedTurso) -> anyhow::Result<BffState>
     Ok(BffState {
         config: Config::default(),
         db: db.clone(),
-        composition: build_composition_root(db),
+        composition: build_libsql_composition_root(db),
         counter_cache: build_counter_cache(),
         http_client: build_http_client(),
         authz: Arc::new(MockAuthzAdapter::new()),
@@ -72,7 +73,7 @@ fn build_http_client() -> reqwest::Client {
         .unwrap_or_default()
 }
 
-fn build_composition_root(db: Option<DatabaseBackend>) -> Option<BffCompositionRoot> {
+fn build_libsql_composition_root(db: Option<DatabaseBackend>) -> Option<BffCompositionRoot> {
     let backend = match db {
         Some(DatabaseBackend::Embedded(db)) => TursoBackend::Embedded(db),
         Some(DatabaseBackend::Remote(db)) => TursoBackend::Remote(db),
@@ -82,14 +83,120 @@ fn build_composition_root(db: Option<DatabaseBackend>) -> Option<BffCompositionR
     Some(BffCompositionRoot {
         counter_service: Arc::new(RepositoryBackedCounterService::new(
             LibSqlCounterRepository::new(backend.clone()),
-        )),
-        tenant_service: Arc::new(TenantService::new(TenantServiceRepository::new(
+        )) as crate::composition::CounterServiceHandle,
+        tenant_service: Arc::new(TenantService::new(LibSqlTenantRepository::new(
             backend.clone(),
         ))),
         user_profile_repository: Arc::new(LibSqlUserRepository::new(backend.clone())),
         user_tenant_repository: Arc::new(LibSqlUserTenantRepository::new(backend.clone())),
-        user_tenant_info_repository: Arc::new(UserTenantInfoRepository::new(backend)),
+        user_tenant_info_repository: Arc::new(UserLibSqlTenantRepository::new(backend)),
     })
+}
+
+async fn build_composition_root(
+    config: &Config,
+    db: Option<DatabaseBackend>,
+) -> anyhow::Result<Option<BffCompositionRoot>> {
+    if config.store_provider.eq_ignore_ascii_case("turso") {
+        return Ok(build_libsql_composition_root(db));
+    }
+    if !config.store_provider.eq_ignore_ascii_case("surrealdb") {
+        anyhow::bail!("unsupported APP_STORE_PROVIDER: {}", config.store_provider);
+    }
+
+    #[cfg(not(feature = "surrealdb"))]
+    anyhow::bail!("APP_STORE_PROVIDER=surrealdb requires the web-bff surrealdb feature");
+
+    #[cfg(feature = "surrealdb")]
+    return build_surrealdb_composition_root(config).await;
+}
+
+#[cfg(feature = "surrealdb")]
+async fn build_surrealdb_composition_root(
+    config: &Config,
+) -> anyhow::Result<Option<BffCompositionRoot>> {
+    use counter_service::infrastructure::SurrealDbCounterRepository;
+    use tenant_service::infrastructure::SurrealDbTenantRepository;
+    use user_service::infrastructure::{
+        SurrealDbTenantRepository as UserSurrealDbTenantRepository, SurrealDbUserRepository,
+        SurrealDbUserTenantRepository,
+    };
+
+    let endpoint = config.surrealdb_url.as_deref().ok_or_else(|| {
+        anyhow::anyhow!("APP_STORE_PROVIDER=surrealdb requires APP_SURREALDB_URL")
+    })?;
+    let password = config.surrealdb_pass.as_deref().ok_or_else(|| {
+        anyhow::anyhow!("APP_STORE_PROVIDER=surrealdb requires APP_SURREALDB_PASS")
+    })?;
+    let admin = ExternalSurrealDb::new_with_auth(
+        endpoint,
+        &config.surrealdb_ns,
+        &config.surrealdb_db,
+        &config.surrealdb_user,
+        password,
+        None,
+    );
+    for (_, sql) in TENANT_MIGRATIONS {
+        admin
+            .unsafe_admin_query::<serde_json::Value>(SurrealAdminMarker::unsafe_admin(), sql)
+            .await
+            .map_err(anyhow::Error::msg)?;
+    }
+
+    let tenant_db = ExternalSurrealDb::new_with_auth(
+        endpoint,
+        &config.surrealdb_ns,
+        &config.surrealdb_db,
+        &config.surrealdb_user,
+        password,
+        Some(config.surrealdb_tenant_scope.clone()),
+    );
+    let counter_db = ExternalSurrealDb::new_with_auth(
+        endpoint,
+        &config.surrealdb_ns,
+        &config.surrealdb_db,
+        &config.surrealdb_user,
+        password,
+        Some(config.surrealdb_tenant_scope.clone()),
+    );
+    let user_db = ExternalSurrealDb::new_with_auth(
+        endpoint,
+        &config.surrealdb_ns,
+        &config.surrealdb_db,
+        &config.surrealdb_user,
+        password,
+        Some(config.surrealdb_tenant_scope.clone()),
+    );
+    let user_tenant_db = ExternalSurrealDb::new_with_auth(
+        endpoint,
+        &config.surrealdb_ns,
+        &config.surrealdb_db,
+        &config.surrealdb_user,
+        password,
+        Some(config.surrealdb_tenant_scope.clone()),
+    );
+    let user_tenant_info_db = ExternalSurrealDb::new_with_auth(
+        endpoint,
+        &config.surrealdb_ns,
+        &config.surrealdb_db,
+        &config.surrealdb_user,
+        password,
+        Some(config.surrealdb_tenant_scope.clone()),
+    );
+
+    Ok(Some(BffCompositionRoot {
+        counter_service: Arc::new(RepositoryBackedCounterService::new(
+            SurrealDbCounterRepository::new(counter_db),
+        )) as crate::composition::CounterServiceHandle,
+        tenant_service: Arc::new(TenantService::new(SurrealDbTenantRepository::new(
+            tenant_db,
+        ))) as crate::composition::TenantServiceHandle,
+        user_profile_repository: Arc::new(SurrealDbUserRepository::new(user_db)),
+        user_tenant_repository: Arc::new(SurrealDbUserTenantRepository::new(user_tenant_db)),
+        user_tenant_info_repository: Arc::new(UserSurrealDbTenantRepository::new(
+            user_tenant_info_db,
+        )),
+    }))
 }
 
 async fn initialize_database(config: &Config) -> anyhow::Result<Option<DatabaseBackend>> {

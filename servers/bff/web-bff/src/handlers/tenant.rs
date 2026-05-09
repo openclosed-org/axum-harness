@@ -7,7 +7,6 @@ use contracts_errors::ErrorResponse;
 use utoipa_axum::{router::OpenApiRouter, routes};
 
 use contracts_api::{InitTenantRequest, InitTenantResponse};
-use tenant_service::application::TenantServiceTrait;
 use validator::Validate;
 
 use crate::error::{BffError, BffResult};

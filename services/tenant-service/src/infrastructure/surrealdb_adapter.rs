@@ -5,7 +5,9 @@
 use std::collections::BTreeMap;
 
 use async_trait::async_trait;
-use data::ports::surreal_db::SurrealDbPort;
+use data::ports::surreal_db::{
+    SurrealDbPort, SurrealFieldValue, SurrealOrderDirection, TenantQueryOperation,
+};
 use serde::Deserialize;
 
 use crate::domain::{CreateTenantInput, Tenant};
@@ -14,6 +16,7 @@ use crate::ports::{RepositoryError, TenantRepository, UserTenantBinding};
 /// Raw row shape from the tenant table.
 #[derive(Debug, Deserialize)]
 struct TenantRow {
+    #[serde(rename = "tenant_key")]
     id: String,
     name: String,
     created_at: String,
@@ -33,16 +36,13 @@ impl<P: SurrealDbPort> SurrealDbTenantRepository<P> {
 #[async_trait]
 impl<P: SurrealDbPort> TenantRepository for SurrealDbTenantRepository<P> {
     async fn create_tenant(&self, input: CreateTenantInput) -> Result<Tenant, RepositoryError> {
-        let mut vars = BTreeMap::new();
-        vars.insert("id".into(), serde_json::json!(input.id));
-        vars.insert("name".into(), serde_json::json!(input.name));
+        let mut vars: BTreeMap<String, SurrealFieldValue> = BTreeMap::new();
+        vars.insert("tenant_key".into(), serde_json::json!(input.id).into());
+        vars.insert("name".into(), serde_json::json!(input.name).into());
 
         let rows: Vec<TenantRow> = self
             .port
-            .query(
-                "CREATE tenant CONTENT { id: $id, name: $name, created_at: time::now() } RETURN AFTER",
-                vars,
-            )
+            .tenant_query(TenantQueryOperation::create("tenant", vars)?)
             .await?;
 
         rows.into_iter()
@@ -52,12 +52,18 @@ impl<P: SurrealDbPort> TenantRepository for SurrealDbTenantRepository<P> {
     }
 
     async fn get_tenant(&self, id: &str) -> Result<Option<Tenant>, RepositoryError> {
-        let mut vars = BTreeMap::new();
-        vars.insert("id".into(), serde_json::json!(id));
+        let mut vars: BTreeMap<String, SurrealFieldValue> = BTreeMap::new();
+        vars.insert("tenant_key".into(), serde_json::json!(id).into());
 
         let rows: Vec<TenantRow> = self
             .port
-            .query("SELECT * FROM tenant WHERE id = $id", vars)
+            .tenant_query(TenantQueryOperation::select(
+                "tenant",
+                Vec::new(),
+                vars,
+                None,
+                None,
+            )?)
             .await?;
 
         Ok(rows.into_iter().next().map(row_to_tenant))
@@ -66,21 +72,24 @@ impl<P: SurrealDbPort> TenantRepository for SurrealDbTenantRepository<P> {
     async fn list_tenants(&self) -> Result<Vec<Tenant>, RepositoryError> {
         let rows: Vec<TenantRow> = self
             .port
-            .query(
-                "SELECT * FROM tenant ORDER BY created_at DESC",
+            .tenant_query(TenantQueryOperation::select(
+                "tenant",
+                Vec::new(),
                 BTreeMap::new(),
-            )
+                Some(("created_at".into(), SurrealOrderDirection::Desc)),
+                None,
+            )?)
             .await?;
         Ok(rows.into_iter().map(row_to_tenant).collect())
     }
 
     async fn delete_tenant(&self, id: &str) -> Result<(), RepositoryError> {
-        let mut vars = BTreeMap::new();
-        vars.insert("id".into(), serde_json::json!(id));
+        let mut vars: BTreeMap<String, SurrealFieldValue> = BTreeMap::new();
+        vars.insert("tenant_key".into(), serde_json::json!(id).into());
 
         let _: Vec<serde_json::Value> = self
             .port
-            .query("DELETE tenant WHERE id = $id", vars)
+            .tenant_query(TenantQueryOperation::delete("tenant", vars)?)
             .await?;
 
         Ok(())
@@ -96,15 +105,18 @@ impl<P: SurrealDbPort> TenantRepository for SurrealDbTenantRepository<P> {
             role: String,
         }
 
-        let mut vars = BTreeMap::new();
-        vars.insert("user_sub".into(), serde_json::json!(user_sub));
+        let mut vars: BTreeMap<String, SurrealFieldValue> = BTreeMap::new();
+        vars.insert("user_sub".into(), serde_json::json!(user_sub).into());
 
         let rows: Vec<BindingRow> = self
             .port
-            .query(
-                "SELECT tenant_id, role FROM user_tenant WHERE user_sub = $user_sub LIMIT 1",
+            .tenant_query(TenantQueryOperation::select(
+                "user_tenant",
+                vec!["tenant_id".into(), "role".into()],
                 vars,
-            )
+                None,
+                Some(1),
+            )?)
             .await?;
 
         Ok(rows.into_iter().next().map(|row| UserTenantBinding {
@@ -119,17 +131,15 @@ impl<P: SurrealDbPort> TenantRepository for SurrealDbTenantRepository<P> {
         tenant_id: &str,
         role: &str,
     ) -> Result<(), RepositoryError> {
-        let mut vars = BTreeMap::new();
-        vars.insert("user_sub".into(), serde_json::json!(user_sub));
-        vars.insert("tenant_id".into(), serde_json::json!(tenant_id));
-        vars.insert("role".into(), serde_json::json!(role));
+        let _ = tenant_id;
+        let mut vars: BTreeMap<String, SurrealFieldValue> = BTreeMap::new();
+        vars.insert("user_sub".into(), serde_json::json!(user_sub).into());
+        vars.insert("tenant_id".into(), serde_json::json!(tenant_id).into());
+        vars.insert("role".into(), serde_json::json!(role).into());
 
         let _: Vec<serde_json::Value> = self
             .port
-            .query(
-                "CREATE user_tenant CONTENT { user_sub: $user_sub, tenant_id: $tenant_id, role: $role }",
-                vars,
-            )
+            .tenant_query(TenantQueryOperation::create("user_tenant", vars)?)
             .await?;
 
         Ok(())

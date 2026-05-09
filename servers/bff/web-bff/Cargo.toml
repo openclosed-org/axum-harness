@@ -19,6 +19,7 @@ contracts_events = { workspace = true }
 kernel = { workspace = true }
 data = { workspace = true }
 storage_turso = { workspace = true }
+storage_surrealdb = { workspace = true, optional = true }
 observability = { workspace = true }
 authn-oidc-verifier = { workspace = true }
 authz = { workspace = true }
@@ -79,6 +80,7 @@ mockito = { workspace = true }
 
 [features]
 default = []
+surrealdb = ["dep:storage_surrealdb", "storage_surrealdb/http"]
 
 [lints]
 workspace = true

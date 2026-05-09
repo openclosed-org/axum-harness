@@ -1,7 +1,5 @@
 //! BFF tenant context resolution for authenticated requests.
 
-use user_service::ports::UserTenantRepository;
-
 use crate::audit::{AuditEvent, AuditOutcome};
 use crate::error::{BffError, BffResult};
 use crate::request_context::RequestContext;

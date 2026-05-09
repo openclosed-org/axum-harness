@@ -43,11 +43,21 @@ pub struct Config {
     /// Embedded Turso database URL (e.g., "file:path.db" or "memory").
     /// Used when turso_url is not set.
     pub database_url: Option<String>,
+    /// Repository provider for all BFF-composed business services.
+    /// Supported values: `turso`, `surrealdb`.
+    pub store_provider: String,
     /// Remote Turso database URL (e.g., "libsql://your-db.turso.io").
     /// When set, the BFF connects to Turso cloud instead of embedded mode.
     pub turso_url: Option<String>,
     /// Turso authentication token for remote connections.
     pub turso_auth_token: Option<String>,
+    /// External SurrealDB endpoint used when APP_STORE_PROVIDER=surrealdb.
+    pub surrealdb_url: Option<String>,
+    pub surrealdb_ns: String,
+    pub surrealdb_db: String,
+    pub surrealdb_user: String,
+    pub surrealdb_pass: Option<String>,
+    pub surrealdb_tenant_scope: String,
 }
 
 impl Config {
@@ -75,8 +85,15 @@ impl Default for Config {
             authz_store_id: String::new(),
             authz_model_id: String::new(),
             database_url: None,
+            store_provider: "turso".to_string(),
             turso_url: None,
             turso_auth_token: None,
+            surrealdb_url: None,
+            surrealdb_ns: "axh".to_string(),
+            surrealdb_db: "main".to_string(),
+            surrealdb_user: "root".to_string(),
+            surrealdb_pass: None,
+            surrealdb_tenant_scope: "platform".to_string(),
         }
     }
 }
@@ -124,6 +141,33 @@ impl RuntimeSecurityPolicy for Config {
                 "APP_AUTHZ_ENDPOINT",
                 "production requires APP_AUTHZ_ENDPOINT",
             ));
+        }
+
+        if self.store_provider.eq_ignore_ascii_case("surrealdb") {
+            if self
+                .surrealdb_url
+                .as_deref()
+                .unwrap_or_default()
+                .trim()
+                .is_empty()
+            {
+                return Err(RuntimeGuardViolation::new(
+                    "APP_SURREALDB_URL",
+                    "APP_STORE_PROVIDER=surrealdb requires APP_SURREALDB_URL",
+                ));
+            }
+            if self
+                .surrealdb_pass
+                .as_deref()
+                .unwrap_or_default()
+                .trim()
+                .is_empty()
+            {
+                return Err(RuntimeGuardViolation::new(
+                    "APP_SURREALDB_PASS",
+                    "APP_STORE_PROVIDER=surrealdb requires APP_SURREALDB_PASS",
+                ));
+            }
         }
 
         if self.cors_allowed_origins.is_empty() {

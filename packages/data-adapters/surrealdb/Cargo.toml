@@ -9,11 +9,20 @@ rust-version.workspace = true
 [dependencies]
 kernel = { workspace = true }
 data-traits = { workspace = true }
-surrealdb = { workspace = true }
+reqwest = { workspace = true, features = ["json"], optional = true }
+surrealdb = { workspace = true, optional = true }
 async-trait = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 workspace-hack = { version = "0.1", path = "../../workspace-hack" }
+
+[dev-dependencies]
+tokio = { workspace = true }
+
+[features]
+default = ["http"]
+http = ["dep:reqwest"]
+sdk = ["dep:surrealdb"]
 
 [lints]
 workspace = true

@@ -340,7 +340,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HealthResponse'
+                $ref: '#/components/schemas/ReadinessResponse'
+        '503':
+          description: Service dependencies are not ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadinessResponse'
 components:
   schemas:
     CounterResponse:
@@ -432,6 +438,17 @@ components:
         tenant_id:
           type: string
           description: The tenant ID in "table:key" format.
+    ReadinessResponse:
+      type: object
+      required:
+      - status
+      properties:
+        status:
+          type: string
+        unavailable:
+          type: array
+          items:
+            type: string
     UserProfileResponse:
       type: object
       description: Current authenticated user profile.

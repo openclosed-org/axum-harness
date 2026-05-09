@@ -1,5 +1,11 @@
 //! Infrastructure layer — LibSQL implementations of repository ports.
 
+pub mod surrealdb_adapter;
+
+pub use surrealdb_adapter::{
+    SurrealDbTenantRepository, SurrealDbUserRepository, SurrealDbUserTenantRepository,
+};
+
 use async_trait::async_trait;
 use chrono::Utc;
 use serde::Deserialize;

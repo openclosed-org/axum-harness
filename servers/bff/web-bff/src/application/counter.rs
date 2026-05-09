@@ -3,7 +3,7 @@
 //! These functions are BFF composition logic: resolve authenticated tenant,
 //! enforce route-level authz, call counter-service, and maintain BFF-local cache.
 
-use counter_service::contracts::service::{CounterError, CounterService};
+use counter_service::contracts::service::CounterError;
 use counter_service::domain::CounterId;
 
 use crate::audit::{AuditEvent, AuditOutcome};
