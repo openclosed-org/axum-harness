@@ -34,7 +34,7 @@
 
 按当前目录理解：
 
-1. `infrastructure/` 负责底层依赖，如 NATS、Valkey、MinIO。
+1. `infrastructure/` 负责底层依赖，如 NATS、Valkey、MinIO、SurrealDB。
 2. `apps/` 负责应用或交付单元的 Kustomization。
 
 ### 2.2 与 counter 参考链的真实挂接点
@@ -67,6 +67,7 @@
 4. `infra/k3s/overlays/dev/kustomization.yaml` 是当前 `web-bff` 主链的 dev overlay 入口。
 5. `infra/k3s/overlays/dev/outbox-relay-worker/kustomization.yaml` 是 `outbox-relay-worker` 的独立 dev overlay 入口。
 6. `infra/k3s/overlays/dev/projector-worker/kustomization.yaml` 是 `projector-worker` 的独立 dev overlay 入口。
+7. `infra/kubernetes/addons/surrealdb.yaml` 和 `infra/gitops/flux/infrastructure/infrastructure.yaml` 已声明 SurrealDB infrastructure landing point，但本仓库会话尚未测试 live Flux reconciliation。
 
 ## 4. 当前不能过度承诺的部分
 

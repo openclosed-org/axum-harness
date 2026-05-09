@@ -3,7 +3,7 @@
 # Subagent identity routes work; it does not make a gate required.
 
 version: 2
-updated: "2026-04-27"
+updated: "2026-05-09"
 
 strengths:
   advisory:
@@ -49,6 +49,34 @@ gates:
     strength: guardrail
     scope: repo
     note: Use when broader confidence is needed; not a default requirement for every change.
+
+  gate_ci_single_node:
+    command: ["just", "gate-ci-single-node"]
+    label: GitHub/local single-node backend profile
+    strength: guardrail
+    scope: repo
+    note: Runs backend primary and alternative provider lanes plus SOPS, platform, topology, observability, boundary, and generated artifact checks.
+
+  smoke_local_k3d:
+    command: ["just", "smoke-local-k3d"]
+    label: Local Colima + K3d infrastructure smoke
+    strength: guardrail
+    scope: infra
+    note: Tests local K3d nodes, SOPS reconcile, addon apply, SurrealDB Service DNS/HTTP, and SurrealDB PVC pod-restart persistence. Does not prove production K3s or Flux reconciliation.
+
+  gate_local_k3d:
+    command: ["just", "gate-local-k3d"]
+    label: Full local K3d profile gate
+    strength: guardrail
+    scope: infra
+    note: Runs gate-ci-single-node, smoke-local-k3d, secret checks, worker source/config smoke, and observability config smoke.
+
+  verify_surrealdb_compose_persistence:
+    command: ["just", "verify-surrealdb-compose-persistence"]
+    label: Local compose SurrealDB persistence smoke
+    strength: guardrail
+    scope: infra
+    note: Tests local compose SurrealDB named-volume persistence across container restart; does not prove K3d/K3s PVC behavior.
 
   boundary_check:
     command: ["just", "boundary-check"]
@@ -169,6 +197,20 @@ path_rules:
     note: Shared tooling can affect the backend-core lane; prefer scoped checks before repo-wide verify.
 
   - match:
+      - justfiles/gates.just
+      - justfiles/k3d.just
+      - justfiles/multipass.just
+      - docs/operations/gate-profiles.md
+      - docs/operations/k3d-local.md
+      - docs/operations/k3s-local-multipass.md
+    recommended:
+      - gate_ci_single_node
+      - smoke_local_k3d
+      - boundary_check
+    required: []
+    note: Local profile changes need executable profile evidence when tools are available; keep Multipass protected/manual unless explicitly requested.
+
+  - match:
       - packages/contracts/**
       - docs/contracts/**
     recommended:
@@ -230,6 +272,16 @@ path_rules:
     note: These gates validate declarations and generators; invariant claims need tests or stricter delivery evidence.
 
   - match:
+      - platform/model/resources/surrealdb.yaml
+      - docs/operations/surrealdb-lane.md
+    recommended:
+      - gate_ci_single_node
+      - verify_surrealdb_compose_persistence
+      - smoke_local_k3d
+    required: []
+    note: SurrealDB provider/resource changes are optional-lane changes; do not treat them as default backend-core prerequisites, but do test the explicit provider/runtime lanes when feasible.
+
+  - match:
       - infra/**
       - ops/**
     recommended:
@@ -238,6 +290,17 @@ path_rules:
       - boundary_check
     required: []
     note: Escalate for secrets, topology, GitOps, or production delivery changes.
+
+  - match:
+      - infra/kubernetes/addons/**
+      - infra/docker/compose/core.yaml
+      - infra/security/sops/**
+    recommended:
+      - validate_platform
+      - validate_topology
+      - smoke_local_k3d
+    required: []
+    note: Runtime addon, compose, and secret-consumption changes need local runtime smoke when the local toolchain is available; use compose persistence for SurrealDB compose-only changes.
 
   - match:
       - verification/**
@@ -290,6 +353,7 @@ risk_rules:
     add_recommended:
       - validate_platform
       - verify_counter_delivery
+      - smoke_local_k3d
     minimum_evidence: checked
 
   release_readiness:

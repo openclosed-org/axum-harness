@@ -40,6 +40,7 @@
 3. `infra/security/sops/templates/dev/projector-worker.yaml`
 4. `infra/security/sops/templates/dev/counter-shared-db.yaml`
 5. `infra/security/sops/templates/dev/counter-service.yaml`
+6. `infra/security/sops/templates/dev/surrealdb.yaml`
 
 对应的加密产物当前也已存在：
 
@@ -48,6 +49,7 @@
 3. `infra/security/sops/dev/projector-worker.enc.yaml`
 4. `infra/security/sops/dev/counter-shared-db.enc.yaml`
 5. `infra/security/sops/dev/counter-service.enc.yaml`
+6. `infra/security/sops/dev/surrealdb.enc.yaml`
 
 需要注意：
 
@@ -56,6 +58,7 @@
 3. `projector-worker` secrets 已有 dev 模板与加密产物，当前 overlay 已显式配置 `replicas=1`，因此 shared secret 的校验必须前置到 admission。
 4. `counter-shared-db` secrets 用来把 `web-bff`、`outbox-relay-worker`、`projector-worker` 指向同一份远程 libSQL/Turso 数据源。
 5. `counter-service` secrets 已有模板和加密产物，但模板本身已明确说明它主要为 Phase 1+ 独立 deployable 预留。
+6. `surrealdb` secrets 支撑可选 SurrealDB provider lane 和 K3d/compose runtime profile，不是默认 backend-core 的必需前置。
 
 因此，当前默认理解应是：
 
@@ -162,11 +165,14 @@ secrets 文档不能脱离部署链路单独理解。当前真实挂接关系是
 2. `infra/k3s/overlays/dev/projector-worker/kustomization.yaml` 与 `infra/k3s/overlays/dev/outbox-relay-worker/kustomization.yaml` 都已显式挂接 `counter-shared-db` secret，并在当前清单中将副本数显式配置为 1。
 3. 同文件中 `counter-service.enc.yaml` 当前仍被注释，注释明确说明其对应未来独立 deployable 阶段。
 4. `infra/gitops/flux/apps/*.yaml` 已声明通过 `decryption.provider: sops` 和 `secretRef.name: sops-age` 解密。
+5. 本地 K3d smoke 不走 Flux；它通过 `just sops-reconcile dev` 直接 apply SOPS 解密后的 Secret，并创建 `app` 与 `app-dev` namespace。
+6. `surrealdb.enc.yaml` 当前落到 `app` namespace；已有服务/worker dev secrets 主要落到 `app-dev` namespace。
 
 因此这条链路当前的正确理解是：
 
 1. secrets shape 已进入默认工程主线。
 2. 但 `counter-service` 本体仍主要通过 `web-bff` 承载，而不是通过独立 deployable 完整消费自身 secrets。
+3. SurrealDB secret shape 已进入可选 provider/runtime profile；不能把它写成默认 backend-core 本地开发必需项。
 
 ## 5. 文档边界
 

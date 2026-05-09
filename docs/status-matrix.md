@@ -26,6 +26,8 @@ This matrix records current capability status. It is intentionally conservative:
 | Gate selection matrix | implemented | declared | `agent/manifests/gate-matrix.yml` |
 | Platform metadata validation | partial | checked when gate runs | `just validate-platform`, validators under `platform/validators/**` |
 | Generated artifact drift | partial | checked when gate runs | `just verify-generated-artifacts`, contract drift commands |
+| Local K3d infrastructure smoke | partial | tested | `just smoke-local-k3d`, `just gate-local-k3d`; validates three-node K3d readiness, SOPS secret reconcile, SurrealDB Service DNS/HTTP, and SurrealDB PVC pod restart persistence |
+| SurrealDB optional provider lane | experimental / partial | tested when gate runs | `just verify-backend-alternative`, `just test-backend-alternative`, `just verify-surrealdb-compose-persistence`; K3d persistence tested locally, production stability not proven |
 
 ## Not Stable Claims
 
@@ -35,7 +37,7 @@ The following must not be marketed as stable or production-proven yet:
 secure multi-tenant production auth
 complete tenant/authz/audit chain
 worker crash recovery guarantee
-SurrealDB tenant-safe default lane
+SurrealDB tenant-safe optional provider lane as production-stable
 cargo-generate template profiles
 public crates
 ```

@@ -7,11 +7,13 @@
 For an 8GB RAM / 256GB disk Mac mini, use:
 
 ```bash
-colima start --cpu 4 --memory 4 --disk 30 --runtime docker
-docker context use colima
+colima start --cpu 4 --memory 4 --disk 30 --runtime docker --dns 1.1.1.1 --dns 8.8.8.8
 ```
 
 The disk value is the VM disk limit, not immediate host disk usage.
+The explicit DNS resolvers avoid Colima VM resolver states where Docker image pulls try `[::1]:53` and fail.
+
+Do not make `docker context use colima` a hard prerequisite. The recipes prefer a `colima` Docker context when present and otherwise use Colima's Docker socket through `DOCKER_HOST`.
 
 ## Tooling
 
@@ -64,7 +66,7 @@ just smoke-local-k3d
 This verifies:
 
 1. K3d cluster exists with three Ready nodes.
-2. `app` namespace exists.
+2. `app` and `app-dev` namespaces exist.
 3. dev SOPS secrets are reconciled.
 4. `infra/kubernetes/addons` applies.
 5. SurrealDB StatefulSet becomes Ready.

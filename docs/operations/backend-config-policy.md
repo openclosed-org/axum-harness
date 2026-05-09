@@ -69,7 +69,18 @@
 
 ## Local Development
 
-### Cluster Path (Recommended)
+### Local Cluster Validation Path
+
+For the low-resource local Kubernetes profile, use the K3d gate surface:
+
+```bash
+just smoke-local-k3d
+just gate-local-k3d
+```
+
+This path starts or reuses Colima + K3d, reconciles dev SOPS secrets directly into the cluster, applies `infra/kubernetes/addons/`, and verifies SurrealDB readiness plus pod-restart PVC persistence.
+
+### K3s/GitOps Delivery Direction
 
 使用仓库当前的 K3s overlay 路径跑服务，通过 Kustomize/Flux 注入配置：
 
@@ -80,6 +91,8 @@ just sops-reconcile dev
 # 部署应用
 just deploy-prod dev
 ```
+
+This is the K3s/GitOps delivery direction, not the local K3d smoke entrypoint.
 
 ### Quick Inner Loop (No Cluster)
 
