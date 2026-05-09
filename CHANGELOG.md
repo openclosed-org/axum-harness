@@ -13,6 +13,44 @@ Preferred release views:
 - Releases: <https://github.com/openclosed-org/axum-harness/releases>
 - Tags: <https://github.com/openclosed-org/axum-harness/tags>
 
+## v0.5.0 - 2026-05-09
+
+### SurrealDB Runtime Lane
+
+- Added SurrealDB as a declared runtime resource across platform model environments, topology metadata, generated platform catalogs, local compose infrastructure, Kubernetes addons, and dev secret shape.
+- Wired the SurrealDB provider lane through `web-bff`, tenant/user/counter infrastructure adapters, service integration paths, and BFF tenant-store coverage.
+- Added SurrealDB local operations documentation and external adapter tests so the lane has explicit setup, persistence, and verification guidance.
+- Updated generated OpenAPI and golden contract artifacts for the BFF surface affected by the provider lane.
+
+### Gates, Local Runtime Profiles, And Governance Evidence
+
+- Added local K3d backend profile support with Just recipes, workflow coverage, gate profile documentation, and local Kubernetes guidance.
+- Added Phase 0 evidence gates and repository guidance for package classification, security status, status matrix, BDD development, and claim-evidence auditing.
+- Updated gate matrix, routing rules, codemap, and operations docs so declared evidence and local runtime checks are easier to select and interpret.
+
+### BFF, AuthZ, And Security Boundaries
+
+- Added tenant audit evidence through the BFF path and expanded tenant context handling around authorization and audit boundaries.
+- Extracted shared security contract crates for audit, context, and runtime policy concerns.
+- Added AuthZ port boundaries and adjusted BFF authorization/configuration composition to consume the shared security contracts.
+
+### AuthN And Worker Reliability
+
+- Hardened OIDC JWT verification with additional negative coverage around verifier behavior.
+- Preserved worker replay checkpoint safety and isolated outbox poller tests to reduce cross-test interference.
+- Updated worker runtime and projector paths for safer checkpoint and replay behavior.
+
+### Tooling And Dependency Hygiene
+
+- Updated the OpenSSL lockfile and workspace dependency wiring for the new security, SurrealDB, contract, worker, and validator paths.
+- Updated repo tooling around harness commands and worker command handling.
+- Adjusted `.mise.toml`, `.gitignore`, root `Justfile`, and verification recipes for the new local gate and runtime lanes.
+
+### Verification
+
+- Added or updated tests for OIDC verifier negative cases, SurrealDB external adapter behavior, BFF HTTP coverage, BFF SurrealDB tenant store behavior, counter full-stack integration, and worker polling isolation.
+- Release readiness for this line should be checked with the release gate using the `minor` SemVer expectation before tagging.
+
 ## v0.4.1 - 2026-05-05
 
 ### BFF And Auth Runtime
