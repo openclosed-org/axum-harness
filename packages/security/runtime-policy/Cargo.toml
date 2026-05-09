@@ -1,0 +1,14 @@
+[package]
+name = "security-runtime-policy"
+version = "0.1.0"
+edition = "2024"
+publish = false
+description = "Shared runtime security profile policy contracts"
+license = "Apache-2.0"
+rust-version.workspace = true
+
+[dependencies]
+thiserror = { workspace = true }
+
+[lints]
+workspace = true

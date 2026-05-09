@@ -62,9 +62,10 @@ pub async fn get_value(state: &BffState, request_context: &RequestContext) -> Bf
 
     check_authz(
         state,
-        &request_context.user_sub,
+        request_context,
         "can_read",
         &counter_object(tenant_id.as_str()),
+        Some(tenant_id.as_str()),
     )
     .await?;
 
@@ -96,9 +97,10 @@ async fn mutate_counter(
     let tenant_id = resolve_tenant_id(state, request_context).await?;
     check_authz(
         state,
-        &request_context.user_sub,
+        request_context,
         "can_write",
         &counter_object(tenant_id.as_str()),
+        Some(tenant_id.as_str()),
     )
     .await?;
 
@@ -132,12 +134,9 @@ async fn mutate_counter(
                 tenant_id.as_str(),
                 AuditOutcome::Succeeded,
             )
-            .actor(request_context.user_sub.clone())
+            .actor(request_context.user_sub().to_string())
             .tenant(tenant_id.as_str())
-            .request(
-                request_context.request_id.clone(),
-                request_context.trace_id.clone(),
-            )
+            .request(request_context.request_id(), request_context.trace_id())
             .metadata(serde_json::json!({"idempotency_key":"[redacted]"})),
         )
         .await;

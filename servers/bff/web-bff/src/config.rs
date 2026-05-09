@@ -1,5 +1,6 @@
 //! BFF 配置 — 环境变量 + figment 加载。
 
+use security_runtime_policy::{RuntimeGuardViolation, RuntimeProfile, RuntimeSecurityPolicy};
 use serde::{Deserialize, Serialize};
 
 /// Web BFF 应用配置。
@@ -86,42 +87,53 @@ impl Config {
     }
 
     pub fn validate_runtime(&self) -> anyhow::Result<()> {
-        self.validate_runtime_for_profile(Self::is_runtime_production())
-    }
-
-    fn validate_runtime_for_profile(&self, is_production: bool) -> anyhow::Result<()> {
-        if !is_production {
-            return Ok(());
-        }
-
-        if self.allows_dev_headers() {
-            anyhow::bail!("APP_AUTH_MODE=dev_headers is not allowed in production");
-        }
-
-        if self.oidc_issuer.trim().is_empty() && self.jwt_secret == Self::dev_secret() {
-            anyhow::bail!("production requires APP_OIDC_ISSUER or a non-default APP_JWT_SECRET");
-        }
-
-        if self.authz_endpoint.trim().is_empty() {
-            anyhow::bail!("production requires APP_AUTHZ_ENDPOINT");
-        }
-
-        if self.cors_allowed_origins.is_empty() {
-            anyhow::bail!("production requires APP_CORS_ALLOWED_ORIGINS allowlist");
-        }
-
-        Ok(())
-    }
-
-    fn is_runtime_production() -> bool {
-        std::env::var("APP_ENV")
-            .or_else(|_| std::env::var("APP_PROFILE"))
-            .map(|value| value.eq_ignore_ascii_case("production"))
-            .unwrap_or(false)
+        self.validate_runtime_profile(RuntimeProfile::from_env())
+            .map_err(anyhow::Error::from)
     }
 
     fn dev_secret() -> &'static str {
         "dev-secret-change-in-production"
+    }
+}
+
+impl RuntimeSecurityPolicy for Config {
+    fn validate_runtime_profile(
+        &self,
+        profile: RuntimeProfile,
+    ) -> Result<(), RuntimeGuardViolation> {
+        if !profile.is_production() {
+            return Ok(());
+        }
+
+        if self.allows_dev_headers() {
+            return Err(RuntimeGuardViolation::new(
+                "APP_AUTH_MODE",
+                "APP_AUTH_MODE=dev_headers is not allowed in production",
+            ));
+        }
+
+        if self.oidc_issuer.trim().is_empty() && self.jwt_secret == Self::dev_secret() {
+            return Err(RuntimeGuardViolation::new(
+                "APP_OIDC_ISSUER",
+                "production requires APP_OIDC_ISSUER or a non-default APP_JWT_SECRET",
+            ));
+        }
+
+        if self.authz_endpoint.trim().is_empty() {
+            return Err(RuntimeGuardViolation::new(
+                "APP_AUTHZ_ENDPOINT",
+                "production requires APP_AUTHZ_ENDPOINT",
+            ));
+        }
+
+        if self.cors_allowed_origins.is_empty() {
+            return Err(RuntimeGuardViolation::new(
+                "APP_CORS_ALLOWED_ORIGINS",
+                "production requires APP_CORS_ALLOWED_ORIGINS allowlist",
+            ));
+        }
+
+        Ok(())
     }
 }
 
@@ -148,7 +160,7 @@ mod tests {
         };
 
         let error = config
-            .validate_runtime_for_profile(true)
+            .validate_runtime_profile(RuntimeProfile::Production)
             .unwrap_err()
             .to_string();
         assert!(error.contains("APP_OIDC_ISSUER"));
@@ -162,7 +174,7 @@ mod tests {
         };
 
         let error = config
-            .validate_runtime_for_profile(true)
+            .validate_runtime_profile(RuntimeProfile::Production)
             .unwrap_err()
             .to_string();
         assert!(error.contains("APP_AUTHZ_ENDPOINT"));
@@ -176,7 +188,7 @@ mod tests {
         };
 
         let error = config
-            .validate_runtime_for_profile(true)
+            .validate_runtime_profile(RuntimeProfile::Production)
             .unwrap_err()
             .to_string();
         assert!(error.contains("APP_CORS_ALLOWED_ORIGINS"));
@@ -190,7 +202,7 @@ mod tests {
         };
 
         let error = config
-            .validate_runtime_for_profile(true)
+            .validate_runtime_profile(RuntimeProfile::Production)
             .unwrap_err()
             .to_string();
         assert!(error.contains("APP_AUTH_MODE"));
@@ -203,6 +215,8 @@ mod tests {
             ..Config::default()
         };
 
-        config.validate_runtime_for_profile(false).unwrap();
+        config
+            .validate_runtime_profile(RuntimeProfile::Development)
+            .unwrap();
     }
 }

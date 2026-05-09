@@ -7953,6 +7953,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "security-audit"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+ "uuid",
+]
+
+[[package]]
+name = "security-context"
+version = "0.1.0"
+dependencies = [
+ "contracts_events",
+ "kernel",
+]
+
+[[package]]
 name = "security-framework"
 version = "3.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7973,6 +7993,13 @@ checksum = "6ce2691df843ecc5d231c0b14ece2acc3efb62c0a398c7e1d875f3983ce020e3"
 dependencies = [
  "core-foundation-sys",
  "libc",
+]
+
+[[package]]
+name = "security-runtime-policy"
+version = "0.1.0"
+dependencies = [
+ "thiserror 2.0.18",
 ]
 
 [[package]]
@@ -10938,6 +10965,9 @@ dependencies = [
  "observability",
  "platform",
  "reqwest 0.13.2",
+ "security-audit",
+ "security-context",
+ "security-runtime-policy",
  "serde",
  "serde_json",
  "storage_turso",

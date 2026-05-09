@@ -1,0 +1,19 @@
+[package]
+name = "security-audit"
+version = "0.1.0"
+edition = "2024"
+publish = false
+description = "Shared security audit event and sink contracts"
+license = "Apache-2.0"
+rust-version.workspace = true
+
+[dependencies]
+async-trait = { workspace = true }
+chrono = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+uuid = { workspace = true, features = ["v7"] }
+
+[lints]
+workspace = true

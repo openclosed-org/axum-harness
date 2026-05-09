@@ -122,6 +122,6 @@ fn db_not_ready() -> BffError {
 
 fn extract_user_sub(request_context: Option<Extension<RequestContext>>) -> BffResult<String> {
     request_context
-        .map(|Extension(context)| context.user_sub)
+        .map(|Extension(context)| context.user_sub().to_string())
         .ok_or_else(|| BffError::Unauthorized("Missing authenticated request context".to_string()))
 }

@@ -1,0 +1,15 @@
+[package]
+name = "security-context"
+version = "0.1.0"
+edition = "2024"
+publish = false
+description = "Shared security and request context contracts"
+license = "Apache-2.0"
+rust-version.workspace = true
+
+[dependencies]
+contracts_events = { workspace = true }
+kernel = { workspace = true }
+
+[lints]
+workspace = true

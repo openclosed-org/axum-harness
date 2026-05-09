@@ -4,7 +4,7 @@
 //! When `turso_url` is configured, connects to Turso cloud.
 //! Otherwise falls back to embedded database.
 
-use crate::audit::{AuditEvent, InMemoryAuditSink};
+use crate::audit::{AuditEvent, AuditSink, InMemoryAuditSink};
 use crate::bootstrap::{bootstrap_bff_state, bootstrap_test_state};
 use crate::composition::{
     CounterServiceHandle, TenantServiceHandle, UserProfileRepositoryHandle,
@@ -100,7 +100,9 @@ impl BffState {
     }
 
     pub async fn append_audit(&self, event: AuditEvent) {
-        self.audit.append(event).await;
+        if let Err(error) = self.audit.append(event).await {
+            tracing::warn!(error = %error, "failed to append BFF audit event");
+        }
     }
 
     pub async fn audit_events(&self) -> Vec<AuditEvent> {

@@ -198,6 +198,16 @@ path_rules:
     note: Add contracts_check when request/response/error shapes change.
 
   - match:
+      - packages/authn/**
+      - packages/authz/**
+      - packages/security/**
+    recommended:
+      - verify_backend_primary
+      - boundary_check
+    required: []
+    note: Run path-scoped cargo fmt/test/clippy for touched security crates; keep contracts framework-neutral.
+
+  - match:
       - workers/**
     recommended:
       - verify_backend_primary

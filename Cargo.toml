@@ -33,6 +33,7 @@ include = [
     "packages/data-adapters/**",
     "packages/authn/**",
     "packages/authz/**",
+    "packages/security/**",
     "packages/observability/**",
 ]
 
@@ -67,6 +68,10 @@ members = [
     "packages/authn/oidc-verifier",
     # AuthZ
     "packages/authz",
+    # Security
+    "packages/security/audit",
+    "packages/security/context",
+    "packages/security/runtime-policy",
     # SDK
     "packages/sdk/rust/counter",
     "packages/sdk/rust/counter-embedded",
@@ -156,6 +161,9 @@ adapter-google = { path = "packages/authn/adapters/google", version = "0.1.0" }
 adapter-google-backend = { path = "packages/authn/adapters/google-backend", version = "0.1.0" }
 authn-oidc-verifier = { path = "packages/authn/oidc-verifier", version = "0.1.0" }
 authz = { path = "packages/authz", version = "0.1.0" }
+security-audit = { path = "packages/security/audit", version = "0.1.0" }
+security-context = { path = "packages/security/context", version = "0.1.0" }
+security-runtime-policy = { path = "packages/security/runtime-policy", version = "0.1.0" }
 workspace-hack = { path = "packages/workspace-hack", version = "0.1.0" }
 observability = { path = "packages/observability", version = "0.1.0" }
 sdk-counter = { path = "packages/sdk/rust/counter", version = "0.1.0" }

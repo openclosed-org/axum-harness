@@ -22,6 +22,9 @@ storage_turso = { workspace = true }
 observability = { workspace = true }
 authn-oidc-verifier = { workspace = true }
 authz = { workspace = true }
+security-audit = { workspace = true }
+security-context = { workspace = true }
+security-runtime-policy = { workspace = true }
 platform = { workspace = true }
 
 # Axum HTTP framework

@@ -72,6 +72,14 @@ rules:
   - match: "servers/internal-rpc/**"
     primary: server-agent
 
+  # Shared security domain
+  - match: "packages/security/**"
+    primary: planner
+    secondary:
+      - server-agent       # if runtime entrypoints consume the security contract
+      - worker-agent       # if async workers consume audit/context contracts
+    condition: "security contracts must remain framework-neutral and must not import servers/**"
+
   # Service domain
   - match: "services/**"
     primary: service-agent

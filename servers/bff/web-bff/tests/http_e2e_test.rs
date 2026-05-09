@@ -1223,6 +1223,11 @@ async fn counter_mutation_audit_redacts_idempotency_key() {
         .await
         .unwrap();
     assert_eq!(init_response.status(), StatusCode::OK);
+    let init_body: serde_json::Value = body_to_json(init_response).await;
+    let tenant_id = init_body
+        .get("tenant_id")
+        .and_then(|value| value.as_str())
+        .expect("tenant init should return tenant_id");
 
     let response = app
         .oneshot(
@@ -1231,6 +1236,7 @@ async fn counter_mutation_audit_redacts_idempotency_key() {
                 .method(http::Method::POST)
                 .header(http::header::AUTHORIZATION, format!("Bearer {token}"))
                 .header("Idempotency-Key", "raw-secret-idem-key")
+                .header("x-request-id", "audit-request-id")
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -1247,6 +1253,16 @@ async fn counter_mutation_audit_redacts_idempotency_key() {
     let rendered = serde_json::to_string(&event.metadata).unwrap();
     assert!(rendered.contains("[redacted]"));
     assert!(!rendered.contains("raw-secret-idem-key"));
+
+    let authz_event = events
+        .iter()
+        .find(|event| event.action == "authz.can_write")
+        .expect("counter mutation should append an authz audit event");
+    assert_eq!(authz_event.outcome, AuditOutcome::Allowed);
+    assert_eq!(authz_event.request_id.as_deref(), Some("audit-request-id"));
+    assert_eq!(authz_event.tenant_id.as_deref(), Some(tenant_id));
+    assert_eq!(authz_event.metadata["tenant_id"], tenant_id);
+    assert_eq!(authz_event.metadata["request_id"], "audit-request-id");
 }
 
 #[tokio::test]

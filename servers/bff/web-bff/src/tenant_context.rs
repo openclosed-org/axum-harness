@@ -6,13 +6,7 @@ use crate::audit::{AuditEvent, AuditOutcome};
 use crate::error::{BffError, BffResult};
 use crate::request_context::RequestContext;
 use crate::state::BffState;
-
-#[derive(Debug, Clone)]
-pub struct TenantContext {
-    pub tenant_id: kernel::TenantId,
-    pub actor_sub: String,
-    pub claim_tenant_id: Option<String>,
-}
+pub use security_context::TenantContext;
 
 pub async fn resolve_tenant_id(
     state: &BffState,
@@ -27,7 +21,7 @@ pub async fn resolve_tenant_context(
     state: &BffState,
     request_context: &RequestContext,
 ) -> BffResult<TenantContext> {
-    let user_sub = &request_context.user_sub;
+    let user_sub = request_context.user_sub();
     let binding_repo = state
         .user_tenant_repository()
         .ok_or_else(|| BffError::Internal("Database not initialized".to_string()))?;
@@ -51,11 +45,11 @@ pub async fn resolve_tenant_context(
         ));
     };
 
-    if let Some(claim_tenant_id) = request_context.tenant_id.as_deref()
+    if let Some(claim_tenant_id) = request_context.tenant_id()
         && claim_tenant_id != resolved.as_str()
     {
         tracing::warn!(
-            user_sub = %request_context.user_sub,
+            user_sub = %request_context.user_sub(),
             claim_tenant_id,
             resolved_tenant_id = %resolved,
             "tenant claim does not match persisted tenant binding"
@@ -77,8 +71,8 @@ pub async fn resolve_tenant_context(
 
     let context = TenantContext {
         tenant_id: resolved,
-        actor_sub: request_context.user_sub.clone(),
-        claim_tenant_id: request_context.tenant_id.clone(),
+        actor_sub: request_context.user_sub().to_string(),
+        claim_tenant_id: request_context.tenant_id().map(str::to_string),
     };
     state
         .append_audit(
@@ -92,11 +86,8 @@ pub async fn resolve_tenant_context(
 
 fn base_tenant_audit(request_context: &RequestContext, outcome: AuditOutcome) -> AuditEvent {
     AuditEvent::new("tenant.resolve", "tenant", "binding", outcome)
-        .actor(request_context.user_sub.clone())
-        .request(
-            request_context.request_id.clone(),
-            request_context.trace_id.clone(),
-        )
+        .actor(request_context.user_sub().to_string())
+        .request(request_context.request_id(), request_context.trace_id())
 }
 
 fn map_tenant_resolution_error(error: user_service::domain::error::UserError) -> BffError {

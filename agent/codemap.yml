@@ -26,6 +26,12 @@ source_of_truth:
     paths:
       - packages/contracts/**
     note: External DTO, event, RPC, and error shapes live here before implementation changes.
+  security:
+    paths:
+      - packages/security/**
+      - packages/authn/**
+      - packages/authz/**
+    note: Shared authentication, authorization, audit, runtime security policy, and security context contracts live here before server-specific adapters copy them.
   platform_shape:
     paths:
       - platform/schema/**
@@ -199,6 +205,8 @@ layers:
       - packages/devx/**
       - packages/workspace-hack/**
     role: Shared abstractions, runtime libraries, adapters, SDKs, security, observability, and tooling.
+    must_not:
+      - depend on servers/**, services/** concrete implementations, Axum middleware shells, or worker entrypoints from security contract crates
 
   - name: infra-ops
     paths:

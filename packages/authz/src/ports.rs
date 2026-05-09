@@ -50,6 +50,63 @@ pub struct AuthzTuple {
     pub key: AuthzTupleKey,
 }
 
+/// Framework-neutral authorization check context.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct AuthzCheck {
+    pub user: String,
+    pub relation: String,
+    pub object: String,
+    pub tenant_id: Option<String>,
+    pub request_id: Option<String>,
+}
+
+impl AuthzCheck {
+    pub fn new(
+        user: impl Into<String>,
+        relation: impl Into<String>,
+        object: impl Into<String>,
+    ) -> Self {
+        Self {
+            user: user.into(),
+            relation: relation.into(),
+            object: object.into(),
+            tenant_id: None,
+            request_id: None,
+        }
+    }
+
+    pub fn tenant(mut self, tenant_id: impl Into<String>) -> Self {
+        self.tenant_id = Some(tenant_id.into());
+        self
+    }
+
+    pub fn optional_tenant(mut self, tenant_id: Option<String>) -> Self {
+        self.tenant_id = tenant_id;
+        self
+    }
+
+    pub fn request(mut self, request_id: Option<String>) -> Self {
+        self.request_id = request_id;
+        self
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AuthzDecision {
+    Allowed,
+    Denied,
+}
+
+impl AuthzDecision {
+    pub fn from_allowed(allowed: bool) -> Self {
+        if allowed { Self::Allowed } else { Self::Denied }
+    }
+
+    pub fn is_allowed(self) -> bool {
+        matches!(self, Self::Allowed)
+    }
+}
+
 /// Authorization port — the contract that all authz adapters must implement.
 #[async_trait]
 pub trait AuthzPort: Send + Sync {
