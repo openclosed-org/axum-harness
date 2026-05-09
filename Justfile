@@ -15,17 +15,20 @@ set export  # 导出环境变量到子进程
 
 # 模块导入
 # justfiles/* 是命令面的一部分，不应静默缺失；这里保持显式导入和稳定顺序。
-# 主轴：setup -> dev -> build -> verify -> ops -> clean
+# 主轴：setup -> dev -> build -> verify -> gates -> ops -> clean
 import 'justfiles/setup.just'
 import 'justfiles/dev.just'
 import 'justfiles/build.just'
 import 'justfiles/verify.just'
+import 'justfiles/gates.just'
 import 'justfiles/ops.just'
 import 'justfiles/clean.just'
 
-# 副轴：platform / secrets / template / skills
+# 副轴：platform / secrets / local cluster profiles / template / skills
 import 'justfiles/platform.just'
 import 'justfiles/sops.just'
+import 'justfiles/k3d.just'
+import 'justfiles/multipass.just'
 import 'justfiles/template.just'
 import 'justfiles/skills.just'
 
@@ -51,6 +54,8 @@ help:
     @printf "  just dev\n"
     @printf "  just test\n"
     @printf "  just check-backend-primary\n"
+    @printf "  just gate-ci-single-node\n"
+    @printf "  just smoke-local-k3d\n"
     @printf "  just verify\n"
     @printf "\n"
     @printf "分组帮助\n"
@@ -59,6 +64,7 @@ help:
     @printf "  just help-ops\n"
     @printf "  just help-platform\n"
     @printf "  just help-secrets\n"
+    @printf "  just help-local-clusters\n"
     @printf "  just help-template\n"
     @printf "  just help-all\n"
     @printf "\n"
@@ -90,6 +96,8 @@ help-verify:
     @printf "  just validate-publish-intent strict\n"
     @printf "  just audit-app-shell-boundary dry-run\n"
     @printf "  just gate-existence MODE=warn\n"
+    @printf "  just gate-ci-single-node\n"
+    @printf "  just gate-local-k3d\n"
     @printf "  just gate-release             release 门禁（RELEASE_TYPE=major 可声明 breaking）\n"
     @printf "\n"
 
@@ -123,6 +131,17 @@ help-secrets:
     @printf "  just sops-edit web-bff dev\n"
     @printf "  just sops-run web-bff dev 'cargo run -p web-bff'\n"
     @printf "  just sops-reconcile dev\n"
+    @printf "\n"
+
+help-local-clusters:
+    @printf "\n本地集群 / Profile Gate\n"
+    @printf "  just gate-ci-single-node       GitHub CI/CD 对齐的单机向基础门禁\n"
+    @printf "  just smoke-local-k3d           Colima + K3d 低资源 Kubernetes smoke\n"
+    @printf "  just gate-local-k3d            Colima + K3d 本地完整 profile 门禁\n"
+    @printf "  just k3d-up                    启动 1 server + 2 agents 的 K3d 集群\n"
+    @printf "  just k3d-apply-infra           应用 namespace/secrets/addons\n"
+    @printf "  just k3d-test-surrealdb-persistence\n"
+    @printf "  just multipass-k3s-plan        打印 1.0 前 Multipass + K3s 手动方案\n"
     @printf "\n"
 
 help-template:

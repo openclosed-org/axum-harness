@@ -11,10 +11,13 @@ For general readers and template adopters:
 1. `README.md`
 2. `docs/architecture/north-star.md`
 3. `docs/operations/local-dev.md`
-4. `docs/operations/counter-service-reference-chain.md`
-5. `docs/operations/release-process.md`
-6. `docs/operations/secret-management.md`
-7. `docs/template-users/template-init.md`
+4. `docs/operations/surrealdb-lane.md`
+5. `docs/operations/gate-profiles.md`
+6. `docs/operations/k3d-local.md`
+7. `docs/operations/counter-service-reference-chain.md`
+8. `docs/operations/release-process.md`
+9. `docs/operations/secret-management.md`
+10. `docs/template-users/template-init.md`
 
 For maintainers and agent-assisted development:
 

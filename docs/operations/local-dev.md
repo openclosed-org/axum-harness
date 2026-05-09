@@ -20,10 +20,12 @@
 2. `Generic OIDC + OpenFGA` 是可选增强，不应成为所有本地后端开发的前提。
 3. 若当前任务只关心后端 handler / service / contracts，可优先使用 `APP_AUTH_MODE=dev_headers` 做本地接口调试。
 
-当前本地与 CI 的验证入口也按这两条 lane 区分：
+当前本地与 CI 的验证入口也按 profile 区分：
 
-1. 默认主链：`just check-backend-primary` + `just test-backend-primary`
-2. 可选 auth lane：`just verify-auth-optional` + `just test-auth-optional`
+1. GitHub CI/CD 对齐的单机向基础门禁：`just gate-ci-single-node`
+2. 低资源本地 Kubernetes profile：`just smoke-local-k3d` 或 `just gate-local-k3d`
+3. 可选 auth lane：`just verify-auth-optional` + `just test-auth-optional`
+4. 可选 SurrealDB lane：`just verify-backend-alternative` + `just test-backend-alternative`
 
 ## 2. 推荐阅读顺序
 
@@ -32,10 +34,14 @@
 1. `docs/architecture/north-star.md`
 2. `docs/operations/counter-service-reference-chain.md`
 3. `infra/local/README.md`
-4. `justfiles/dev.just`
-5. `justfiles/sops.just`
-6. `justfiles/ops.just`
-7. `infra/docker/compose/core.yaml`
+4. `docs/operations/gate-profiles.md`
+5. `docs/operations/k3d-local.md`
+6. `justfiles/dev.just`
+7. `justfiles/gates.just`
+8. `justfiles/k3d.just`
+9. `justfiles/sops.just`
+10. `justfiles/ops.just`
+11. `infra/docker/compose/core.yaml`
 
 ## 2.1 平台前置条件
 
@@ -91,11 +97,13 @@ just auth-bootstrap
 3. MinIO
 4. 可选的 Turso/libSQL client-server 模式相关端口信息
 5. 可选的本地 auth 栈：`http://localhost:8082/auth/v1/` (Rauthy local reference IdP), `http://localhost:8081` (OpenFGA)
+6. 可选的本地 SurrealDB server：`http://localhost:8000`
 
 需要注意：
 
 1. 默认业务路径仍主要使用嵌入式 libSQL/SQLite 形态。
 2. sqld 是可选的本地实验路径，不应写成所有开发都必须依赖的默认前提。
+3. SurrealDB 是可选实验 lane，默认按独立 DB server 使用，不应让默认主链编译 SurrealDB Rust SDK。
 
 ### 3.3 启动后端开发进程
 

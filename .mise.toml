@@ -22,6 +22,10 @@ flux2 = "latest"
 kubectl = "latest"
 kustomize = "latest"
 helm = "latest"
+"aqua:k3d-io/k3d" = "latest"
+
+# Docker CLI only. The daemon/runtime for local K3d is provided by Colima.
+"aqua:docker/cli" = "latest"
 
 # ── 通用文本处理 CLI（aqua registry）──────────────────────
 "aqua:jqlang/jq" = "latest"
