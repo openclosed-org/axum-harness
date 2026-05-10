@@ -25,7 +25,7 @@ doctor:
 doctor-full:
     cargo run -p repo-tools -- doctor
 
-# 安装 sccache 编译缓存（加速重复编译 80%+）
+# 安装 sccache 编译缓存。安装不等于启用；启用需设置 RUSTC_WRAPPER=sccache。
 setup-sccache:
     @echo "=== Installing sccache ==="
     cargo run -p repo-tools -- setup-sccache
@@ -50,7 +50,7 @@ setup-sccache-verify:
     @echo ""
     cargo run -p repo-tools -- setup-sccache-verify
 
-# 安装 cargo-hakari 统一依赖解析（减少重复编译 30%+）
+# 安装 cargo-hakari 并刷新 workspace-hack。会修改生成区块，适合单独提交。
 setup-hakari:
     cargo run -p repo-tools -- setup-hakari
 
@@ -58,6 +58,8 @@ setup-hakari:
 setup-hakari-verify:
     @echo "=== hakari status ==="
     cargo run -p repo-tools -- setup-hakari-verify
+    cargo hakari generate --diff
+    cargo hakari manage-deps --dry-run
 
 # 安装覆盖率工具（一次性）
 setup-coverage:

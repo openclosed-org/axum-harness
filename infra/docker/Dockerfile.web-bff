@@ -1,17 +1,19 @@
+# syntax=docker/dockerfile:1.7
 # Multi-stage Dockerfile for the Web BFF service
 #
 # Build:
 #   podman build -f infra/docker/Dockerfile.web-bff -t web-bff .
 #
 # Run:
-#   podman run -p 3010:3010 web-bff
+#   podman run -p 3010:3010 --env-file /run/axum-harness/web-bff.env web-bff
 #
-# Uses distroless/static for minimal attack surface (~6MB runtime image).
+# Uses distroless/cc because the default Rust build links dynamic system libraries.
 
 # ── Stage 1: Builder ─────────────────────────────────────────
-FROM rust:1.94-slim AS builder
+FROM rust:1.95-bookworm AS builder
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    cmake \
     pkg-config \
     libssl-dev \
     && rm -rf /var/lib/apt/lists/*
@@ -25,35 +27,37 @@ COPY Justfile ./
 
 # Copy all workspace crates
 COPY packages/ ./packages/
+COPY services/ ./services/
 COPY servers/ ./servers/
-COPY apps/ ./apps/
+COPY workers/ ./workers/
+COPY platform/ ./platform/
+COPY tools/ ./tools/
 
-# Build the Web BFF service only
-RUN cargo build --release --package web-bff
+# Build the Web BFF service only. Cache mounts keep repeated Podman builds fast
+# without committing Cargo registry/git/target contents into the builder layer.
+RUN --mount=type=cache,target=/usr/local/cargo/registry \
+    --mount=type=cache,target=/usr/local/cargo/git \
+    --mount=type=cache,target=/app/target \
+    cargo build --release --package web-bff && \
+    mkdir -p /app/out && \
+    cp /app/target/release/web-bff /app/out/web-bff
 
-# ── Stage 2: Runtime (distroless/static) ─────────────────────
-FROM gcr.io/distroless/static-debian12:nonroot AS runtime
+# ── Stage 2: Runtime (distroless/cc) ─────────────────────────
+FROM gcr.io/distroless/cc-debian12:nonroot AS runtime
 
 # Copy CA certificates for HTTPS (TLS, OIDC, external APIs)
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
 # Copy the built binary
-COPY --from=builder /app/target/release/web-bff /usr/local/bin/web-bff
-
-# Create data directory (owned by nonroot user: 65532)
-RUN mkdir -p /data
+COPY --from=builder /app/out/web-bff /usr/local/bin/web-bff
 
 WORKDIR /
 
 EXPOSE 3010
 
 ENV RUST_LOG=info,web-bff=debug
-ENV WEB_BFF_SERVER__HOST=0.0.0.0
-ENV WEB_BFF_SERVER__PORT=3010
-ENV WEB_BFF_DATABASE__URL=file:/data/web-bff.db
-
-# Healthcheck
-HEALTHCHECK --interval=10s --timeout=5s --retries=3 --start-period=30s \
-    CMD ["/usr/local/bin/web-bff", "--health"]
+ENV APP_SERVER_HOST=0.0.0.0
+ENV APP_SERVER_PORT=3010
+ENV APP_DATABASE_URL=file:/tmp/web-bff.db
 
 ENTRYPOINT ["/usr/local/bin/web-bff"]

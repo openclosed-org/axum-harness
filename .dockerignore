@@ -1,0 +1,26 @@
+# Keep Podman/Docker build context small and deterministic.
+# Rust target output is often tens of GB and is rebuilt inside the builder image.
+target/
+.git/
+.run/
+.tmp/
+.sccache/
+
+# Frontend/desktop local artifacts are not needed by backend image builds.
+node_modules/
+apps/web/node_modules/
+apps/web/.svelte-kit/
+apps/web/build/
+apps/desktop/src-tauri/target/
+
+# Local/editor/cache noise.
+.DS_Store
+*.log
+*.tmp
+*.swp
+*.swo
+
+# Secrets and local env material must be injected explicitly via SOPS/export-env.
+.env
+.env.*
+infra/local/generated/*.env

@@ -20,6 +20,7 @@ servers/bff/web-bff/file::memory*
 .env.*
 infra/local/generated/
 infra/local/state/
+.run/
 # SOPS plaintext templates — NEVER commit (contains secret shapes / may contain real values)
 infra/security/sops/templates/
 

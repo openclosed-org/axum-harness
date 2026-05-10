@@ -23,6 +23,7 @@ import 'justfiles/verify.just'
 import 'justfiles/gates.just'
 import 'justfiles/ops.just'
 import 'justfiles/clean.just'
+import 'justfiles/podman.just'
 
 # 副轴：platform / secrets / local cluster profiles / template / skills
 import 'justfiles/platform.just'
@@ -64,6 +65,7 @@ help:
     @printf "  just help-ops\n"
     @printf "  just help-platform\n"
     @printf "  just help-secrets\n"
+    @printf "  just help-podman\n"
     @printf "  just help-local-clusters\n"
     @printf "  just help-template\n"
     @printf "  just help-all\n"
@@ -104,6 +106,10 @@ help-verify:
 help-ops:
     @printf "\n运维 / 部署 / 迁移\n"
     @printf "  just migrate-status           查看 migration 状态\n"
+    @printf "  just release-web-bff          本地/CI 构建 web-bff release binary\n"
+    @printf "  just release-web-bff-with-sccache 使用项目级 sccache 构建 release binary\n"
+    @printf "  just package-web-bff          打包 binary + sha256 到 .run/artifacts\n"
+    @printf "  just smoke-web-bff-binary     用本地 binary + SOPS env-file 跑 /healthz smoke\n"
     @printf "  just migrate-up               执行 migration（dry-run）\n"
     @printf "  just deploy-prod dev          部署到 k3s\n"
     @printf "  just deploy-prod-dry-run      预览 k3s 部署\n"
@@ -130,7 +136,29 @@ help-secrets:
     @printf "  just sops-show-age-key\n"
     @printf "  just sops-edit web-bff dev\n"
     @printf "  just sops-run web-bff dev 'cargo run -p web-bff'\n"
+    @printf "  just sops-export-env web-bff dev systemd-binary /run/axum-harness/web-bff.env\n"
+    @printf "  just sops-export-env web-bff dev podman /run/axum-harness/web-bff.env\n"
     @printf "  just sops-reconcile dev\n"
+    @printf "\n"
+
+help-podman:
+    @printf "\nPodman / Resource Containers\n"
+    @printf "  just podman-doctor                  查看 Podman 资源和磁盘状态\n"
+    @printf "  just podman-ensure                  检查 Podman 可达性\n"
+    @printf "  just podman-resources-up lite       lite preset，不启动重资源容器\n"
+    @printf "  just podman-resources-up surrealdb  只启动 SurrealDB 官方容器\n"
+    @printf "  just podman-resources-up standard   启动 SurrealDB/NATS/Valkey\n"
+    @printf "  just podman-resources-up full       启动完整资源 compose profiles\n"
+    @printf "  just podman-resources-status        查看资源容器状态\n"
+    @printf "  just podman-resources-down          停止资源容器，保留 volumes\n"
+    @printf "  just podman-export-web-bff-env      可选 prebuilt app container env-file\n"
+    @printf "  just podman-image-proof-web-bff     可选 Dockerfile proof，不是 VPS 部署路径\n"
+    @printf "  just podman-smoke-prebuilt-web-bff  可选 prebuilt image /healthz smoke\n"
+    @printf "  just podman-disk                    查看 Podman 详细磁盘占用\n"
+    @printf "  just podman-prune-build-cache       清理 dangling build layers，保留 volumes\n"
+    @printf "  just podman-prune-stopped-containers 清理 stopped containers，保留 volumes\n"
+    @printf "  just podman-reset-all-i-know-this-deletes-state 清空 Podman images/containers/volumes\n"
+    @printf "  just storage-report                 查看本机/Podman 存储占用\n"
     @printf "\n"
 
 help-local-clusters:
@@ -150,6 +178,10 @@ help-template:
     @printf "  just audit-backend-core dry-run\n"
     @printf "  just semver-check\n"
     @printf "  just skills-list\n"
+    @printf "  just storage-report\n"
+    @printf "  just clean-run-artifacts\n"
+    @printf "  just clean-aggressive-local\n"
+    @printf "  just sccache-purge\n"
     @printf "  just clean-local-storage\n"
     @printf "\n"
 
