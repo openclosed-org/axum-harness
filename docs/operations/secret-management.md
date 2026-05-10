@@ -6,15 +6,16 @@
 
 ## 1. 核心结论
 
-当前后端 canonical secret contract 是 SOPS/Kustomize/Flux-compatible 的 deployable environment shape：
+当前后端 canonical secret contract 是 SOPS/age-backed deployable environment shape：
 
 1. 明文模板放在 `infra/security/sops/templates/<env>/`
 2. 加密产物放在 `infra/security/sops/<env>/*.enc.yaml`
 3. 加密规则由根目录 `.sops.yaml` 统一定义
 4. 本地非集群运行时，可通过 `just sops-run` 将解密后的环境变量注入进程
-5. 集群路径通过 Kustomize/Flux 消费加密 secrets，而不是依赖 `.env`
+5. 单 VPS `systemd-binary` 或 `podman` profile 可通过 `just sops-export-env` 在宿主机生成临时 `0600` env-file
+6. 集群路径通过 Kustomize/Flux 消费加密 secrets，而不是依赖 `.env`
 
-这条路径是 `counter-service` 工程横切链的一部分，不是旁路能力。短本地调试可以使用显式 `APP_*` exports，但不能把 `.env` 或临时环境文件提升为后端参考路径。
+这条路径是 `counter-service` 工程横切链的一部分，不是旁路能力。短本地调试可以使用显式 `APP_*` exports，但不能把 `.env` 或导出的临时 env-file 提交为后端参考配置源。
 
 ## 2. 当前真实文件落点
 
@@ -28,8 +29,8 @@
 当前已确认的事实：
 
 1. `.sops.yaml` 已定义 `templates/`、`dev/`、`staging/`、`prod/` 的创建规则。
-2. `justfiles/sops.just` 已把仓库 cluster-oriented secret shape 写成 `SOPS + Kustomize + Flux`，并明确说明后端参考路径不来自 `.env`。
-3. 当前建议的命令入口是 `just sops-gen-age-key`、`just sops-edit`、`just sops-encrypt-dev`、`just sops-run`、`just sops-reconcile`。
+2. `justfiles/sops.just` 已把仓库 secret shape 写成 `SOPS + age`，并明确说明后端参考路径不来自 `.env`。
+3. 当前建议的命令入口是 `just sops-gen-age-key`、`just sops-edit`、`just sops-encrypt-dev`、`just sops-run`、`just sops-export-env`、`just sops-reconcile`。
 
 ### 2.2 与 counter 参考链直接相关的模板
 
@@ -154,6 +155,46 @@ just sops-run web-bff dev
 3. `failed to decrypt`：仓库内的 `.enc.yaml` 不是用当前私钥加密，或 `SOPS_AGE_KEY_FILE` 指向了错误文件。
 4. `REPLACE_WITH_TURSO_TOKEN`：模板占位符还没被真实 secret 替换，不应继续把这份 secret 当成可运行配置。
 
+### 3.4 单 VPS `systemd-binary` 与 `podman` profile
+
+单 VPS profile 不使用 `.env`。它们和 `sops-run` 使用同一份 `infra/security/sops/<env>/*.enc.yaml`，区别是注入边界从当前子进程变为宿主机上的临时 env-file：
+
+```bash
+just sops-export-env web-bff dev systemd-binary /run/axum-harness/web-bff.env
+just sops-export-env web-bff dev podman /run/axum-harness/web-bff.env
+```
+
+当前已检查的行为：
+
+1. 导出命令会合并 `<deployable>.enc.yaml` 与 `counter-shared-db.enc.yaml`。
+2. 输出文件以 `0600` 权限写入。
+3. 缺失 deployable 专属 secret 时会失败，避免只拿 shared DB secret 误启动未知服务。
+4. 输出路径应位于 `/run/...`、`/var/run/...`、受控 secret 目录，或本地测试用 `.run/...`；不要提交。
+5. macOS 本机已用导出的 env-file 启动 `web-bff` host process，并通过 `GET /healthz`。
+6. macOS Podman 已用导出的 env-file 启动 `web-bff` 容器，并通过宿主机 `GET /healthz`。
+
+`systemd-binary` 使用方式：
+
+```ini
+[Service]
+EnvironmentFile=/run/axum-harness/web-bff.env
+ExecStart=/opt/axum-harness/bin/web-bff
+```
+
+`podman` 使用方式：
+
+```bash
+podman run --rm --env-file /run/axum-harness/web-bff.env <image>
+```
+
+因此默认不需要把 `sops` 或 `age` 装进应用容器。解密发生在宿主机控制面；容器只接收普通环境变量。如果后续使用 Quadlet，也应指向同一个宿主机 env-file，而不是在镜像启动脚本里解密 secret。
+
+macOS smoke 注意事项：
+
+1. Podman machine 需要足够内存构建 `web-bff` 镜像；2GiB 已观测到会在 release build 中被 OOM kill。
+2. `web-bff` 镜像当前使用 `rust:1.95-bookworm` builder 和 `gcr.io/distroless/cc-debian12:nonroot` runtime，避免 glibc 版本漂移与动态链接 loader 缺失。
+3. 本机 smoke 可覆盖 `APP_DATABASE_URL=file:/tmp/web-bff.db`，并避免使用远程 Turso secret；这证明注入与启动路径，不证明远程数据库可用性。
+
 ## 4. 与 Kustomize / Flux 的关系
 
 secrets 文档不能脱离部署链路单独理解。当前真实挂接关系是：
@@ -191,4 +232,4 @@ secrets 文档不能脱离部署链路单独理解。当前真实挂接关系是
 
 ## 6. 一句话结论
 
-当前后端 canonical secret shape 已经是 `templates -> enc.yaml -> Kustomize/Flux 或 sops-run`，而 `counter-service` 已经挂在这条轨道上，只是其独立 deployable 路径仍未成为默认主运行形态。
+当前后端 canonical secret shape 已经是 `templates -> enc.yaml -> sops-run / sops-export-env / Kustomize-Flux`，而 `counter-service` 已经挂在这条轨道上，只是其独立 deployable 路径仍未成为默认主运行形态。

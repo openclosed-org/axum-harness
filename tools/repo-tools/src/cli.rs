@@ -383,6 +383,7 @@ pub(crate) struct SecretsArgs {
 #[derive(Subcommand)]
 pub(crate) enum SecretsCommand {
     DecryptEnv(SecretsDecryptEnvArgs),
+    ExportEnv(SecretsExportEnvArgs),
     VerifyCounterSharedDb(SecretsEnvArgs),
     Run(SecretsRunArgs),
     Reconcile(SecretsReconcileArgs),
@@ -395,6 +396,34 @@ pub(crate) enum SecretsCommand {
 #[derive(Args)]
 pub(crate) struct SecretsDecryptEnvArgs {
     pub(crate) file: PathBuf,
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq, ValueEnum)]
+pub(crate) enum SecretsExportProfile {
+    #[value(name = "systemd-binary")]
+    SystemdBinary,
+    Podman,
+}
+
+impl SecretsExportProfile {
+    pub(crate) fn label(self) -> &'static str {
+        match self {
+            Self::SystemdBinary => "systemd-binary",
+            Self::Podman => "podman",
+        }
+    }
+}
+
+#[derive(Args)]
+pub(crate) struct SecretsExportEnvArgs {
+    #[arg(long, default_value = "web-bff")]
+    pub(crate) deployable: String,
+    #[arg(long, default_value = "dev")]
+    pub(crate) env: String,
+    #[arg(long, value_enum, default_value = "systemd-binary")]
+    pub(crate) profile: SecretsExportProfile,
+    #[arg(long)]
+    pub(crate) output: PathBuf,
 }
 
 #[derive(Args)]

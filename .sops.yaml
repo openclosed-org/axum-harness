@@ -4,10 +4,16 @@
 # using age encryption. This is the SINGLE source of truth for SOPS rules.
 #
 # Backend binaries consume standard environment variables.
-# Environment variables are injected via SOPS/Kustomize/Flux, NOT from .env files.
+# Environment variables are injected from SOPS-decrypted process environments,
+# transient host env-files, or SOPS/Kustomize/Flux. They are NOT sourced from
+# committed .env files.
 #
 # Quick inner loop (local dev, no cluster):
-#   sops exec-env infra/security/sops/dev/web-bff.enc.yaml -- cargo run -p web-bff
+#   just sops-run web-bff dev 'cargo run -p web-bff'
+#
+# Single-VPS binary or Podman host injection:
+#   just sops-export-env web-bff dev systemd-binary /run/axum-harness/web-bff.env
+#   just sops-export-env web-bff dev podman /run/axum-harness/web-bff.env
 #
 # This file defines creation rules organized by:
 #   1. Environment (dev/staging/prod)
@@ -18,7 +24,7 @@
 #   2. Generate key: just sops-gen-age-key
 #   3. Update public key in this file (or use just sops-set-age-key)
 #   4. Create/edit secrets: just sops-edit <deployable> <env>
-#   5. Local reconcile: just sops-reconcile ENV=dev
+#   5. Local reconcile: just sops-reconcile dev
 
 creation_rules:
   # ── Templates (for encryption) ─────────────────────────────
