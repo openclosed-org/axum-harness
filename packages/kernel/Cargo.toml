@@ -14,6 +14,7 @@ sha2 = { workspace = true }
 base64 = { workspace = true }
 rand = { workspace = true }
 hex = { workspace = true }
+workspace-hack = { version = "0.1", path = "../workspace-hack" }
 
 [lints]
 workspace = true

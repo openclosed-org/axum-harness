@@ -30,6 +30,7 @@ clap = { version = "4", features = ["derive"] }
 # Utilities
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
+workspace-hack = { version = "0.1", path = "../../../packages/workspace-hack" }
 
 [lints]
 workspace = true

@@ -40,6 +40,7 @@ urlencoding = { workspace = true }
 
 # LibSQL/Turso
 turso = { version = "0.6.0-pre.15", features = ["sync"] }
+workspace-hack = { version = "0.1", path = "../../packages/workspace-hack" }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["macros", "rt"] }

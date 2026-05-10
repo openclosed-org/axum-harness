@@ -18,7 +18,6 @@ dependencies = [
  "tokio",
  "tracing",
  "url",
- "workspace-hack",
 ]
 
 [[package]]
@@ -48,6 +47,7 @@ dependencies = [
  "opentelemetry-otlp",
  "opentelemetry_sdk",
  "tracing",
+ "workspace-hack",
 ]
 
 [[package]]
@@ -57,6 +57,7 @@ dependencies = [
  "tracing",
  "tracing-error",
  "tracing-subscriber",
+ "workspace-hack",
 ]
 
 [[package]]
@@ -614,6 +615,7 @@ dependencies = [
  "turso",
  "urlencoding",
  "uuid",
+ "workspace-hack",
 ]
 
 [[package]]
@@ -643,6 +645,7 @@ dependencies = [
  "thiserror 2.0.18",
  "tokio",
  "tracing",
+ "workspace-hack",
 ]
 
 [[package]]
@@ -798,6 +801,9 @@ dependencies = [
 [[package]]
 name = "axum-harness"
 version = "0.5.0"
+dependencies = [
+ "workspace-hack",
+]
 
 [[package]]
 name = "backtrace"
@@ -1518,6 +1524,7 @@ dependencies = [
  "serde_yaml",
  "tracing",
  "tracing-subscriber",
+ "workspace-hack",
 ]
 
 [[package]]
@@ -1548,6 +1555,7 @@ dependencies = [
  "serde_json",
  "thiserror 2.0.18",
  "utoipa",
+ "workspace-hack",
 ]
 
 [[package]]
@@ -1651,6 +1659,7 @@ dependencies = [
  "tokio",
  "tracing",
  "uuid",
+ "workspace-hack",
 ]
 
 [[package]]
@@ -2037,6 +2046,7 @@ dependencies = [
  "serde_yaml",
  "tracing",
  "tracing-subscriber",
+ "workspace-hack",
 ]
 
 [[package]]
@@ -2447,7 +2457,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32e90c2accc4b07a8456ea0debdc2e7587bdd890680d71173a15d4ae604f6eef"
 dependencies = [
  "log",
- "regex",
 ]
 
 [[package]]
@@ -2456,10 +2465,7 @@ version = "0.11.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0621c04f2196ac3f488dd583365b9c09be011a4ab8b9f37248ffcc8f6198b56a"
 dependencies = [
- "anstream",
- "anstyle",
  "env_filter",
- "jiff",
  "log",
 ]
 
@@ -2505,6 +2511,7 @@ dependencies = [
  "tokio",
  "tracing",
  "uuid",
+ "workspace-hack",
 ]
 
 [[package]]
@@ -3999,6 +4006,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "uuid",
+ "workspace-hack",
 ]
 
 [[package]]
@@ -4175,30 +4183,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "jiff"
-version = "0.2.23"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1a3546dc96b6d42c5f24902af9e2538e82e39ad350b0c766eb3fbf2d8f3d8359"
-dependencies = [
- "jiff-static",
- "log",
- "portable-atomic",
- "portable-atomic-util",
- "serde_core",
-]
-
-[[package]]
-name = "jiff-static"
-version = "0.2.23"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2a8c8b344124222efd714b73bb41f8b5120b27a7cc1c75593a6ff768d9d05aa4"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.117",
-]
-
-[[package]]
 name = "jni"
 version = "0.21.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4347,6 +4331,7 @@ dependencies = [
  "sha2",
  "thiserror 2.0.18",
  "uuid",
+ "workspace-hack",
 ]
 
 [[package]]
@@ -5399,6 +5384,7 @@ dependencies = [
  "tracing",
  "tracing-opentelemetry",
  "tracing-subscriber",
+ "workspace-hack",
 ]
 
 [[package]]
@@ -5415,6 +5401,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "walkdir",
+ "workspace-hack",
 ]
 
 [[package]]
@@ -5601,6 +5588,7 @@ dependencies = [
  "tracing-subscriber",
  "uuid",
  "worker-runtime",
+ "workspace-hack",
 ]
 
 [[package]]
@@ -6170,6 +6158,7 @@ dependencies = [
  "serde_json",
  "tokio",
  "tracing",
+ "workspace-hack",
 ]
 
 [[package]]
@@ -6367,6 +6356,7 @@ dependencies = [
  "figment",
  "serde",
  "tracing",
+ "workspace-hack",
 ]
 
 [[package]]
@@ -6384,6 +6374,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "walkdir",
+ "workspace-hack",
 ]
 
 [[package]]
@@ -6401,6 +6392,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "walkdir",
+ "workspace-hack",
 ]
 
 [[package]]
@@ -6648,6 +6640,7 @@ dependencies = [
  "tracing-subscriber",
  "uuid",
  "worker-runtime",
+ "workspace-hack",
 ]
 
 [[package]]
@@ -7173,6 +7166,7 @@ dependencies = [
  "tempfile",
  "toml 0.9.12+spec-1.1.0",
  "walkdir",
+ "workspace-hack",
  "xshell",
  "zip",
 ]
@@ -7499,6 +7493,7 @@ dependencies = [
  "tokio",
  "tracing",
  "uuid",
+ "workspace-hack",
 ]
 
 [[package]]
@@ -7739,6 +7734,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "uuid",
+ "workspace-hack",
 ]
 
 [[package]]
@@ -7825,6 +7821,7 @@ dependencies = [
  "kernel",
  "serde",
  "thiserror 2.0.18",
+ "workspace-hack",
 ]
 
 [[package]]
@@ -7836,6 +7833,7 @@ dependencies = [
  "kernel",
  "sdk-counter",
  "storage_turso",
+ "workspace-hack",
 ]
 
 [[package]]
@@ -7849,6 +7847,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
+ "workspace-hack",
 ]
 
 [[package]]
@@ -7881,6 +7880,7 @@ dependencies = [
  "thiserror 2.0.18",
  "tokio",
  "uuid",
+ "workspace-hack",
 ]
 
 [[package]]
@@ -7889,6 +7889,7 @@ version = "0.1.0"
 dependencies = [
  "contracts_events",
  "kernel",
+ "workspace-hack",
 ]
 
 [[package]]
@@ -7919,6 +7920,7 @@ name = "security-runtime-policy"
 version = "0.1.0"
 dependencies = [
  "thiserror 2.0.18",
+ "workspace-hack",
 ]
 
 [[package]]
@@ -7936,6 +7938,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "walkdir",
+ "workspace-hack",
 ]
 
 [[package]]
@@ -8394,9 +8397,6 @@ name = "smallvec"
 version = "1.15.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "67b1b7a3b5fe4f1376887184045fcf45c69e92af734b7aaddc05fb777b6fbd03"
-dependencies = [
- "serde",
-]
 
 [[package]]
 name = "socket2"
@@ -8881,6 +8881,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "uuid",
+ "workspace-hack",
 ]
 
 [[package]]
@@ -9326,6 +9327,7 @@ dependencies = [
  "tokio",
  "tracing",
  "uuid",
+ "workspace-hack",
 ]
 
 [[package]]
@@ -9793,6 +9795,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "walkdir",
+ "workspace-hack",
 ]
 
 [[package]]
@@ -10475,6 +10478,7 @@ dependencies = [
  "tower 0.5.3",
  "uuid",
  "validator",
+ "workspace-hack",
 ]
 
 [[package]]
@@ -10870,6 +10874,7 @@ dependencies = [
  "utoipa-scalar",
  "uuid",
  "validator",
+ "workspace-hack",
 ]
 
 [[package]]
@@ -11631,6 +11636,7 @@ dependencies = [
  "tokio",
  "tracing",
  "uuid",
+ "workspace-hack",
 ]
 
 [[package]]
@@ -11638,28 +11644,24 @@ name = "workspace-hack"
 version = "0.1.0"
 dependencies = [
  "ahash 0.8.12",
- "anstream",
  "arrayvec",
  "base64ct",
  "blake2",
+ "bumpalo",
  "bytemuck",
  "bytes",
  "cc",
  "chrono",
- "crossbeam-channel",
  "crossbeam-epoch",
  "crossbeam-utils",
  "crypto-common",
  "deranged",
  "digest",
  "either",
- "env_filter",
- "env_logger",
  "event-listener",
  "fastrand",
- "figment",
+ "flate2",
  "form_urlencoded",
- "futures",
  "futures-channel",
  "futures-core",
  "futures-executor",
@@ -11668,6 +11670,7 @@ dependencies = [
  "futures-task",
  "futures-util",
  "getrandom 0.3.4",
+ "hashbrown 0.12.3",
  "hashbrown 0.14.5",
  "hashbrown 0.16.1",
  "http",
@@ -11682,15 +11685,19 @@ dependencies = [
  "num-complex",
  "num-integer",
  "num-traits",
+ "once_cell",
  "parking_lot",
  "percent-encoding",
  "petgraph",
  "phf_shared 0.13.1",
+ "proc-macro2",
+ "quote",
  "rand 0.8.6",
  "rand_core 0.6.4",
  "regex",
  "regex-automata",
  "regex-syntax",
+ "reqwest 0.13.2",
  "roaring",
  "rust_decimal",
  "semver",
@@ -11698,23 +11705,25 @@ dependencies = [
  "serde_core",
  "serde_json",
  "signature",
+ "simd-adler32",
  "slab",
  "smallvec",
  "subtle",
  "syn 2.0.117",
  "sync_wrapper",
+ "thiserror 2.0.18",
  "time",
  "time-macros",
  "tokio",
  "tokio-stream",
  "tokio-util",
+ "toml_parser",
  "tower 0.5.3",
  "tracing",
  "tracing-core",
  "tracing-log",
- "utoipa",
- "utoipa-gen",
  "uuid",
+ "winnow 1.0.1",
  "zerocopy",
 ]
 

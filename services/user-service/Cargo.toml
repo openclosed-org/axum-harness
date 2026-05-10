@@ -27,6 +27,7 @@ async-trait = { workspace = true }
 # Utilities
 chrono = { workspace = true }
 rand = { workspace = true }
+workspace-hack = { version = "0.1", path = "../../packages/workspace-hack" }
 
 [dev-dependencies]
 tower = { workspace = true, features = ["util"] }

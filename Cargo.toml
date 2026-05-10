@@ -327,3 +327,6 @@ inherits = "dev"
 opt-level = 0
 debug = false
 strip = true
+
+[dependencies]
+workspace-hack = { version = "0.1", path = "packages/workspace-hack" }

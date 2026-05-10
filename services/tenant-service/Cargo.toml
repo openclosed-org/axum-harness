@@ -23,6 +23,7 @@ tracing = { workspace = true }
 async-trait = { workspace = true }
 chrono = { workspace = true }
 uuid = { workspace = true, features = ["v4", "serde"] }
+workspace-hack = { version = "0.1", path = "../../packages/workspace-hack" }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["macros", "rt"] }

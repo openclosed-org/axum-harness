@@ -35,6 +35,7 @@ futures-util = { workspace = true }
 
 # HTTP server for health checks
 axum = { workspace = true }
+workspace-hack = { version = "0.1", path = "../../packages/workspace-hack" }
 
 [dev-dependencies]
 tempfile = { workspace = true }

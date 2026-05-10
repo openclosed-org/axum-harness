@@ -20,3 +20,4 @@ xshell.workspace = true
 flate2.workspace = true
 tar.workspace = true
 zip.workspace = true
+workspace-hack = { version = "0.1", path = "../../packages/workspace-hack" }

@@ -11,6 +11,7 @@ tracing = { workspace = true }
 async-trait = { workspace = true }
 chrono = { workspace = true }
 figment = { workspace = true }
+workspace-hack = { version = "0.1", path = "../workspace-hack" }
 
 [lints]
 workspace = true

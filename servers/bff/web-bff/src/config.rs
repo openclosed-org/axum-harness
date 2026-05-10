@@ -1,13 +1,14 @@
 //! BFF 配置 — 环境变量 + figment 加载。
 
 use security_runtime_policy::{RuntimeGuardViolation, RuntimeProfile, RuntimeSecurityPolicy};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 
 /// Web BFF 应用配置。
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Config {
     pub server_host: String,
     pub server_port: u16,
+    #[serde(deserialize_with = "deserialize_string_list")]
     pub cors_allowed_origins: Vec<String>,
     /// Authentication mode for protected API routes.
     /// - `jwt` (default): require `Authorization: Bearer <token>`.
@@ -181,6 +182,30 @@ impl RuntimeSecurityPolicy for Config {
     }
 }
 
+fn deserialize_string_list<'de, D>(deserializer: D) -> Result<Vec<String>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum StringList {
+        One(String),
+        Many(Vec<String>),
+    }
+
+    let list = StringList::deserialize(deserializer)?;
+    let values = match list {
+        StringList::One(value) => value
+            .split(',')
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(ToOwned::to_owned)
+            .collect(),
+        StringList::Many(values) => values,
+    };
+    Ok(values)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -262,5 +287,24 @@ mod tests {
         config
             .validate_runtime_profile(RuntimeProfile::Development)
             .unwrap();
+    }
+
+    #[test]
+    fn parses_comma_separated_cors_origins_from_env_shape() {
+        #[derive(Deserialize)]
+        struct CorsOnly {
+            #[serde(deserialize_with = "deserialize_string_list")]
+            cors_allowed_origins: Vec<String>,
+        }
+
+        let config: CorsOnly = serde_json::from_value(serde_json::json!({
+            "cors_allowed_origins": "http://localhost:5173,http://localhost:3000"
+        }))
+        .unwrap();
+
+        assert_eq!(
+            config.cors_allowed_origins,
+            vec!["http://localhost:5173", "http://localhost:3000"]
+        );
     }
 }

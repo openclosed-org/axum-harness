@@ -27,6 +27,7 @@ chrono = { workspace = true }
 uuid = { workspace = true, features = ["v7"] }
 sha2 = { workspace = true }
 hex = { workspace = true }
+workspace-hack = { version = "0.1", path = "../../packages/workspace-hack" }
 
 # Trait-only feature for downstream consumers (BFFs)
 # When BFF depends on counter-service with features = ["trait-only"],

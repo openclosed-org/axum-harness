@@ -22,6 +22,7 @@ chrono = { workspace = true }
 uuid = { workspace = true, features = ["v7"] }
 thiserror = { workspace = true }
 async-nats = "0.47"
+workspace-hack = { version = "0.1", path = "../workspace-hack" }
 
 # Phase 2: NATS (uncomment when ready)
 # async-nats = "0.47"
