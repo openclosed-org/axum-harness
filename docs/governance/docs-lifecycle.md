@@ -2,6 +2,8 @@
 
 Keep tracked docs small and durable.
 
+`docs/` is not the agent memory layer. Agents MUST NOT create new tracked docs files or directories without explicit user approval for the exact path and purpose.
+
 ## Keep Tracked
 
 Tracked `docs/**` should be reserved for:
@@ -11,6 +13,10 @@ Tracked `docs/**` should be reserved for:
 3. minimal template-adoption guidance
 4. a small amount of stable governance guidance
 5. historical notes worth preserving as project history
+
+Tracked `docs/**` should not contain vocabulary catalogs, status snapshots, gate transcripts, SDD drafts, agent behavior rules, or ordinary implementation progress notes.
+
+Historical, superseded, deprecated, or target-state ADRs belong in `docs/archive/adr/**` instead of the default ADR path.
 
 ## Governance Memory
 

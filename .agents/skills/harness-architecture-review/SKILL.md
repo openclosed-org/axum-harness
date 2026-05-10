@@ -13,13 +13,9 @@ Use this skill to surface architecture friction before proposing refactors.
 
 Workflow skills guide process. Ownership skills still decide writable boundaries.
 
-## Vocabulary
-
-Use `docs/language/architecture-deepening.md` terms: module, interface, implementation, seam, adapter, depth, leverage, locality, and deletion test.
-
 ## Process
 
-1. Read `AGENTS.md`, `docs/architecture/north-star.md`, relevant `docs/language/**`, and accepted ADRs in the area.
+1. Read `AGENTS.md`, `agent/codemap.yml`, `docs/architecture/north-star.md`, and accepted ADRs in the area.
 2. Explore code and tests before judging architecture.
 3. Identify where understanding requires bouncing across many shallow modules.
 4. Apply the deletion test to suspected pass-through modules.

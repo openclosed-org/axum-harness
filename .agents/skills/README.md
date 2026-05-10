@@ -2,7 +2,7 @@
 
 Repository skills are triggerable context modules. They should be short, current, and boundary-safe.
 
-For the full context-flow model, read `docs/agents/README.md`. For writing or reviewing a skill, read `docs/agents/skill-authoring.md`.
+For the full context-flow model, read `agent/README.md`. For writing or reviewing a skill, read `agent/skill-authoring.md`.
 
 ## Ownership Skills
 

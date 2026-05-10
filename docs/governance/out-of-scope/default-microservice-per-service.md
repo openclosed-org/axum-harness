@@ -25,4 +25,4 @@ A service can be promoted toward an independent deployable path when the reposit
 
 1. `docs/adr/002-services-are-libraries-not-processes.md`
 2. `docs/adr/009-canonical-monolith-first-topology-late-backend.md`
-3. `docs/language/harness-language.md`
+3. `docs/architecture/north-star.md`

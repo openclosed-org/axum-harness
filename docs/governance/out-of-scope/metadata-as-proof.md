@@ -21,4 +21,4 @@ Do not reconsider this as a default rule. A stronger claim can only be made for 
 1. `AGENTS.md`
 2. `docs/architecture/north-star.md`
 3. `docs/architecture/harness-philosophy.md`
-4. `docs/language/harness-language.md`
+4. `agent/codemap.yml`

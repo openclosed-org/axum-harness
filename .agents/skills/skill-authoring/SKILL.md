@@ -10,7 +10,7 @@ description: >
 
 Use this skill for repository skill changes.
 
-Read `docs/agents/skill-authoring.md` before editing skills.
+Read `agent/skill-authoring.md` before editing skills.
 
 ## Rules
 

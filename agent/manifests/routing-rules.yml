@@ -124,10 +124,10 @@ rules:
   - match: "docs/architecture/**"
     primary: planner
 
-  - match: "docs/agents/**"
+  - match: "docs/governance/**"
     primary: planner
 
-  - match: "docs/language/**"
+  - match: "docs/archive/**"
     primary: planner
 
   - match: "docs/_local/**"

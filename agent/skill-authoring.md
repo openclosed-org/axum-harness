@@ -27,12 +27,13 @@ The description is the trigger interface. It must state what the skill does and 
 ## Writing Rules
 
 1. Keep `SKILL.md` short enough to load frequently.
-2. Move detailed references into adjacent `REFERENCE.md`, `LANGUAGE.md`, or `scripts/**` files.
+2. Move detailed references into adjacent files only when they are stable, scoped, and explicitly owned by the skill.
 3. Do not duplicate `AGENTS.md`, `north-star.md`, or ADR doctrine.
 4. Do not describe target state as current behavior.
 5. Do not create a new source of truth for runtime behavior.
 6. Link references one level deep when possible.
 7. Add scripts only for deterministic operations, validation, formatting, or repeatable evidence capture.
+8. Do not create vocabulary catalogs or status snapshots inside skills.
 
 ## Review Checklist
 

@@ -25,5 +25,5 @@ A stronger readiness claim needs path-scoped evidence such as:
 
 1. `docs/architecture/north-star.md`
 2. `docs/operations/counter-service-reference-chain.md`
-3. `docs/operations/gitops.md`
+3. `docs/operations/advanced-topology/gitops.md`
 4. `docs/operations/secret-management.md`

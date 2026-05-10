@@ -1,76 +1,67 @@
 # AGENTS.md
 
-> Thin coordination protocol for this repository. All agents read this first.
-> Keep this file stable, short, and cross-cutting. Put volatile plans in `docs/_local/`.
+> Thin coordination protocol for this repository.
+> Keep this file stable, short, and cross-cutting.
+> Put volatile plans in `docs/_local/`.
 
-## 1. Language Preference
+## 1. Language
 
 Communication **MUST** be Chinese.
 
 Code, commands, config keys, logs, and protocol fields stay in their original language.
 
-## 2. Project Snapshot
+## 2. Repository Identity
 
-This repository is an agent-first distributed backend harness template, not a generic app demo.
+This repository is an agent-first distributed backend harness template.
 
 Default backend anchor: `counter-service`.
 
-Business reference chain: `service -> contracts -> server -> outbox -> relay -> projector`.
+Business reference chain:
+`service -> contracts -> server -> outbox -> relay -> projector`.
 
-Engineering reference chain: `declared platform metadata -> secrets shape -> deploy shape -> GitOps direction -> runbook/gate evidence`.
+Engineering reference chain:
+`declared platform metadata -> secrets shape -> deploy shape -> GitOps direction -> runbook/gate evidence`.
 
-`apps/**` and `packages/ui/**` are optional shell surfaces. Root backend-core commands must not depend on frontend, desktop, mobile shells, or UI packages by default.
+Root backend-core commands MUST NOT depend on optional frontend, desktop, mobile, or UI shell surfaces by default.
 
-The harness is a coordination layer. It routes work, points to declared sources and executable evidence, and recommends gates. It does not prove semantic correctness by metadata alone.
+Backend deployable secrets use `SOPS + age` as the canonical shape. Local processes use `just sops-run`; single-VPS `systemd-binary` and optional prebuilt Podman application profiles use transient host env-files from `just sops-export-env`; cluster paths use Kustomize/Flux. Do not make `.env` the backend reference path.
 
-## 3. Engineering Posture
+Runtime hosts do not compile first-party Rust code. Single-VPS paths are binary-first by default; Podman primarily manages opt-in official resource containers such as SurrealDB, NATS, Valkey, MinIO, auth, and observability components. Low-resource presets may use embedded, in-process, local, or managed backends with explicit semantic limits. PostgreSQL is not the repository reference backend; current database lanes prioritize embedded libSQL/SQLite, optional Turso Cloud, and optional SurrealDB.
 
-Act as a senior distributed-systems engineer working in a long-lived codebase.
+## 3. Operating Posture
 
-Default behavior:
+Act as a senior distributed-systems engineer in a long-lived codebase.
 
-1. Understand the invariant before changing code.
-2. Fix the smallest causal closed loop, not the nearest symptom.
-3. Prefer simple, explicit, typed, testable code over clever abstractions.
-4. Preserve domain boundaries even when a shortcut would pass a gate faster.
-5. Treat passing gates as evidence, not as the goal.
-6. Leave the system easier to reason about than you found it.
+Default rules:
 
-Do not optimize for looking done. Optimize for restored behavior, durable correctness, and future maintainability.
+1. Read before changing.
+2. Understand the invariant before touching code.
+3. Fix the smallest causal closed loop, not the nearest symptom.
+4. Prefer simple, explicit, typed, testable code.
+5. Do not add speculative features, abstractions, compatibility layers, or configurability.
+6. Touch only lines required by the task.
+7. Match existing style.
+8. Do not hand-edit generated artifacts.
+9. Surface uncertainty instead of guessing.
+10. Verification not executed must not be reported as passed.
 
-## 4. Task Reading Paths
+## 4. Development Loop
 
-Backend tasks:
+For SDD/BDD/TDD-style work:
 
-1. `AGENTS.md`
-2. `docs/architecture/north-star.md`
-3. `docs/architecture/harness-philosophy.md`
-4. relevant `docs/language/**` for vocabulary only
-5. `agent/codemap.yml`
-6. `agent/manifests/routing-rules.yml`
-7. `agent/manifests/gate-matrix.yml`
-
-Tooling, scripts, gates, or repo-control tasks also read:
-
-1. `Justfile`
-2. `justfiles/**`
-3. `moon.yml`
-4. `tools/repo-tools/**`
-5. referenced executable helpers under `tools/repo-tools/**`, `infra/**/scripts/**`, or `ops/**/scripts/**`
-
-Documentation, agent skill, or audit tasks also read `docs/README.md` and relevant `docs/agents/**`.
-
-Infra, secrets, topology, or deploy tasks also read:
-
-1. `docs/operations/**`
-2. `platform/model/**`
-3. relevant `infra/**` and `ops/**`
-
-Bug reports, failing gates, or regressions start from executable evidence: failing command, test, validator, schema, log, or reproduction path.
+1. Translate the request into the smallest verifiable behavior.
+2. Prefer executable specification: tests, schemas, validators, gates, examples.
+3. Do not create planning docs unless the user explicitly asks for a durable document.
+4. For bugs, reproduce or localize first; then repair the smallest causal boundary.
+5. A spec is not done until it is represented by code, tests, contracts, validators, or gates.
+6. If a written note is needed during implementation, keep it in `docs/_local/**` or the PR/handoff, not tracked docs.
+7. Describe observable behavior before internal structure.
+8. Name the boundary and invariant before adding features.
+9. Docs and YAML are not proof.
 
 ## 5. Truth Hierarchy
 
-When determining current state, gather evidence in this order:
+When determining current state, trust evidence in this order:
 
 1. code, schemas, validators, tests, gates, scripts, and command output
 2. generated artifacts only when produced from current sources and checked for drift
@@ -78,16 +69,64 @@ When determining current state, gather evidence in this order:
 4. `agent/**` manifests and `.agents/**` skills
 5. prose documentation
 
-Hard rules:
+Rules:
 
-1. When docs or YAML conflict with executable sources, trust executable sources.
-2. Never infer a file or module exists solely from target-state documentation.
-3. YAML declarations can describe intent; they do not prove semantic correctness.
-4. `declared`, `checked`, `tested`, and `proven` claims must cite executable evidence when raised above `declared`.
+1. Executable evidence beats docs and YAML.
+2. Metadata can declare intent; it does not prove behavior.
+3. Never infer file/module existence solely from target-state documentation.
+4. Use evidence labels consistently: `declared`, `checked`, `tested`, `proven`.
 
-## 6. Routing
+## 6. Documentation Write Control
 
-Full mapping lives in `agent/manifests/routing-rules.yml`.
+Agents MUST NOT create new tracked files or directories under `docs/**` without explicit user approval for the exact path and purpose.
+
+Default behavior:
+
+1. Prefer editing existing code, tests, schemas, validators, gates, or `agent/**`.
+2. Prefer PR notes, handoff text, issue comments, or `docs/_local/**` for temporary reasoning.
+3. Do not create tracked docs to record ordinary implementation progress.
+4. Do not create vocabulary, status, audit, checklist, or planning docs in tracked `docs/**`.
+5. Do not create new docs categories.
+6. Do not promote `_local` material into tracked docs without explicit user approval.
+
+A tracked doc proposal must answer:
+
+1. What invariant or long-lived decision does this preserve?
+2. Why is an existing file insufficient?
+3. What executable source does it point to?
+4. Who owns it?
+5. When should it be reviewed or deleted?
+
+## 7. Reading Paths
+
+Backend tasks read:
+
+1. `AGENTS.md`
+2. `agent/codemap.yml`
+3. `agent/manifests/routing-rules.yml`
+4. `agent/manifests/gate-matrix.yml`
+5. relevant `docs/architecture/**` only when architecture doctrine is directly needed
+6. relevant `docs/adr/**` only when a durable decision is directly involved
+
+Tooling, scripts, gates, or repo-control tasks also read:
+
+1. `Justfile`
+2. `justfiles/**`
+3. `moon.yml`
+4. `tools/repo-tools/**`
+
+Infra, secrets, topology, or deploy tasks also read:
+
+1. `docs/operations/**`
+2. `platform/model/**`
+3. relevant `infra/**` and `ops/**`
+
+Bug reports and regressions start from executable evidence:
+failing command, test, validator, schema, log, or reproduction path.
+
+## 8. Routing
+
+Full routing lives in `agent/manifests/routing-rules.yml`.
 
 Quick reference:
 
@@ -99,106 +138,57 @@ Quick reference:
 | `servers/**`                                                    | server-agent       |
 | `workers/**`                                                    | worker-agent       |
 | `apps/**`, `packages/ui/**`                                     | app-shell-agent    |
-| `tools/repo-tools/**`, `Justfile`, `justfiles/**`, `moon.yml`  | planner            |
+| `tools/repo-tools/**`, `Justfile`, `justfiles/**`, `moon.yml`   | planner            |
 | `AGENTS.md`, `agent/**`, `.agents/**`, root config              | planner            |
-| `docs/agents/**`, `docs/language/**`, `docs/architecture/**`    | planner            |
+| `docs/architecture/**`, `docs/adr/**`, `docs/governance/**`     | planner            |
 
-Multi-domain dispatch order: platform-ops -> contract -> service -> server/worker -> app-shell -> verification.
+Multi-domain dispatch order:
+platform-ops -> contract -> service -> server/worker -> app-shell -> verification.
 
-Only split work when directory, responsibility, or verification boundaries genuinely differ.
+## 9. Gate Selection
 
-Tooling changes may require platform, contract, service, worker, or app-shell review when the changed command controls those domains.
+Gate selection is based on changed paths, risk category, and evidence level.
 
-## 7. Gate Selection
+Use `agent/manifests/gate-matrix.yml`.
 
-Gate selection is based on changed paths, risk category, and evidence level, not subagent identity.
+Default backend-core development should prefer path-scoped guardrails and:
 
-Use `agent/manifests/gate-matrix.yml` to choose advisory, guardrail, or invariant gates.
+`just check-backend-primary`
 
-Default backend-core development should prefer path-scoped guardrails and `just check-backend-primary`. `just verify` is the default repo-wide backend-core gate when broader confidence is needed, not a requirement that every change run every platform, frontend, desktop, production, or release gate.
+Use `just verify` for broader repo-wide backend-core confidence.
 
-P0 invariants and release readiness require executable evidence. Metadata alone is never sufficient.
+Do not treat passing gates as the goal. Gates are evidence for restored behavior.
 
-## 8. Script And Tooling Control Plane
-
-Repository tooling is part of the executable control plane.
+## 10. Tooling Control Plane
 
 `just` is the human command surface. Keep recipes thin.
-`moon` is task orchestration. Keep task graph and cache inputs there, not business logic.
-`tools/repo-tools` is the Rust repo-control CLI. Put reusable validation, generation, drift, routing, and operational logic there.
+
+`moon` is task orchestration. Keep task graph and cache inputs there.
+
+`tools/repo-tools` is the Rust repo-control CLI for reusable validation, generation, drift, routing, and operational logic.
 
 Rules:
 
-1. Do not move shell complexity into Rust as opaque `bash -c` strings.
-2. External commands must use structured arguments, explicit cwd, clear errors, and preflight checks.
+1. No opaque `bash -c` migrations into Rust.
+2. External commands need structured args, explicit cwd, preflight checks, and clear errors.
 3. Write operations must distinguish dry-run from apply.
-4. Secret-handling commands must redact values and avoid writing decrypted material unless explicitly required.
-5. Generated directories are read-only; modify sources and regenerate.
-6. High-risk operations need plan, preflight, execute, and verify phases.
-7. Cross-platform tooling must not assume Linux-only shell behavior unless the command is explicitly scoped to that platform.
-
-## 9. Quality Bar
-
-Use the smallest correct change, but do not confuse small with tactical.
-
-A good change:
-
-1. respects the owning domain boundary
-2. keeps source-of-truth singular
-3. makes invalid states harder to represent
-4. keeps errors visible and actionable
-5. adds or updates verification at the same semantic level as the risk
-6. avoids new hidden coupling, global state, and duplicated rules
-
-SOLID guidance for this repository:
-
-1. Treat SOLID as boundary discipline, not object-oriented ceremony.
-2. Keep each module focused on one reason to change: domain rules in `domain`/`application`, protocol adaptation in `servers`, async recovery in `workers`, and platform concerns in `platform`/`infra`/`ops`.
-3. Extend behavior through contracts, ports, traits, adapters, or composition roots; do not modify inner domain code to satisfy an outer transport, database, UI, or deployment concern.
-4. Keep trait contracts narrow enough that implementations can substitute safely. Split ports when callers do not need the same capabilities.
-5. Depend inward on stable abstractions. Production service code must not depend on concrete infrastructure adapters, app shells, workers, or other services directly.
-6. Allow test-only adapters and fixtures when they provide executable evidence, but do not use test exceptions to justify production dependency direction.
-
-Prefer boring, explicit, well-named code. Introduce abstractions only when they remove real duplication or clarify a stable boundary.
-
-Avoid these anti-patterns:
-
-1. metadata-only correctness claims
-2. generated-file hand edits
-3. shell-in-Rust migrations that keep opaque bash semantics
-4. broad rewrites without an invariant-driven reason
-5. gate gaming by weakening checks or shrinking coverage
-6. swallowing errors to keep workflows green
-7. duplicating rules across docs, YAML, scripts, and Rust
-8. making optional app-shell dependencies part of backend-core defaults
-
-## 10. Global Hard Constraints
-
-1. Read before changing; evidence before judgment; search before guessing.
-2. Fix the smallest causal closed loop that restores the violated invariant.
-3. Passing tests are evidence, not the goal; restored behavior and restored invariants are the goal.
-4. Verification that was not executed cannot be claimed as passed.
-5. Mark uncertainty explicitly; never dress up guesses as conclusions.
-6. Do not solve by deleting, skipping, weakening validation, swallowing errors, bypassing gates, or faking success.
-7. Do not use metadata, generated files, or prose docs to pretend behavior exists.
-8. Do not introduce broad rewrites when a narrow semantic repair is sufficient.
-9. Do not add compatibility layers unless there is persisted data, shipped behavior, external consumers, or explicit user requirement.
-10. Generated artifact directories are read-only; modify the source and regenerate.
-11. Escalate risk when a change affects distributed semantics, authorization, secrets, topology, contract compatibility, generated artifacts, template structure, or release correctness.
+4. Secret-handling commands must redact values.
+5. Generated directories are read-only.
+6. High-risk operations require plan, preflight, execute, and verify phases.
 
 ## 11. Bug Fix Protocol
 
-For bug reports, failing gates, regressions, and suspicious behavior:
+For bugs, failing gates, regressions, and suspicious behavior:
 
-1. Reproduce or localize the failure with code, schema, validator, gate, script, or command-output evidence when feasible.
-2. Identify the violated invariant, not only the failing line or symptom.
-3. Determine the causal boundary: contract, service, server, worker, platform, infra, app, or cross-boundary.
+1. Reproduce or localize with executable evidence when feasible.
+2. Identify the violated invariant.
+3. Determine the causal boundary.
 4. Make the minimal complete repair at that boundary.
-5. Add or update regression verification at the same semantic level as the bug.
-6. Run relevant gates and state explicitly when a gate was not run.
-7. If only a tactical fix is safe, state the residual risk.
+5. Add or update regression verification at the same semantic level.
+6. Run relevant gates.
+7. State residual risk if the fix is tactical.
 
-## 12. Reporting Evidence
+## 12. Completion Report
 
 When reporting completion, state:
 
@@ -206,6 +196,4 @@ When reporting completion, state:
 2. why it restores or improves the relevant invariant
 3. what verification ran
 4. what was not run
-5. any residual risk or uncertainty
-
-Use evidence level terms consistently: `declared`, `checked`, `tested`, `proven`.
+5. residual risk or uncertainty

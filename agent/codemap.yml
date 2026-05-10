@@ -238,10 +238,12 @@ human_authored:
   - Justfile
   - justfiles/**
   - docs/architecture/**
-  - docs/agents/**
-  - docs/language/**
   - docs/operations/**
   - docs/adr/**
+  - docs/contracts/**
+  - docs/template-users/**
+  - docs/governance/**
+  - docs/archive/**
   - platform/schema/**
   - platform/model/**
   - platform/generators/**

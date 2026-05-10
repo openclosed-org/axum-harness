@@ -24,5 +24,5 @@ A platform capability can move closer to default only when it has:
 
 1. `docs/architecture/north-star.md`
 2. `docs/operations/local-dev.md`
-3. `docs/operations/gitops.md`
-4. `docs/language/platform-language.md`
+3. `docs/operations/advanced-topology/gitops.md`
+4. `docs/architecture/harness-philosophy.md`
