@@ -13,6 +13,57 @@ Preferred release views:
 - Releases: <https://github.com/openclosed-org/axum-harness/releases>
 - Tags: <https://github.com/openclosed-org/axum-harness/tags>
 
+## v0.5.1 - 2026-05-10
+
+### Deployment Profiles And Resource Presets
+
+- Reframed deployment guidance around three profiles: `systemd-binary`, optional `podman`, and future `k3s-ha`.
+- Made single-VPS delivery binary-first: runtime hosts consume prebuilt binaries or images and do not compile first-party Rust code.
+- Added `lite`, `standard`, and `full` single-VPS resource presets so distributed resources remain opt-in instead of baseline requirements.
+- Reworked local and advanced topology docs so K3d and Multipass/K3s rehearsals are explicit local shape checks, not `k3s-ha` proof.
+
+### Secrets And Runtime Configuration
+
+- Added `repo-tools secrets export-env` and `just sops-export-env` for generating transient `0600` host env-files from SOPS-managed deployable secrets.
+- Documented `SOPS + age` as the backend deployable secret reference path for local processes, single-VPS binaries, optional Podman app containers, and cluster injection.
+- Kept `.env` out of the backend deployment reference path while preserving local generated auth env output for explicit developer use.
+- Fixed `web-bff` CORS configuration parsing so SOPS/env comma-separated `APP_CORS_ALLOWED_ORIGINS` values are accepted alongside list-shaped input.
+
+### Podman, Binary Packaging, And Local Maintenance
+
+- Reworked Podman recipes around official resource containers with `just podman-resources-up <lite|surrealdb|standard|full>` and matching status, logs, and shutdown commands.
+- Added binary-first build, package, and smoke recipes for `web-bff`, including `just release-web-bff`, `just package-web-bff`, and `just smoke-web-bff-binary`.
+- Added sccache-aware build entrypoints and aggressive storage cleanup commands for Rust build outputs, `.sccache`, `.run`, and Podman images, containers, and volumes.
+- Added `.dockerignore` and adjusted the proof-only `web-bff` Dockerfile so optional app image builds avoid local build artifacts and use the correct runtime base.
+
+### Platform Model And Generated Evidence
+
+- Updated single-VPS topology metadata with runtime build-location principles, resource preset semantics, and lower-resource defaults.
+- Updated SurrealDB and Turso resource metadata to reflect embedded libSQL/SQLite, optional Turso Cloud, and optional SurrealDB lanes; PostgreSQL is not the repository reference backend.
+- Regenerated platform catalogs and golden baselines after the platform resource and topology model changes.
+
+### Documentation And Agent Context
+
+- Consolidated agent-facing guidance under `AGENTS.md`, `agent/**`, and `.agents/skills/**` instead of tracked `docs/agents/**` and `docs/language/**` material.
+- Removed stale status, security, package-classification, claim-audit, and target-state ADR documents so default docs no longer present volatile or historical claims as current evidence.
+- Added the current deployment profile ADR and moved GitOps, K3d, and Multipass/K3s material under `docs/operations/advanced-topology/**`.
+- Updated docs lifecycle, operations, out-of-scope governance, infra, and runbook guidance around evidence labels, binary-first deployment, resource presets, and SOPS-backed configuration.
+
+### Verification
+
+- Verified SOPS validation and env-file export for `web-bff` `systemd-binary` and `podman` profiles, including `0600` output permissions.
+- Verified repo-tools secret export behavior with `rtk cargo test -p repo-tools secrets`, `rtk cargo fmt -p repo-tools -- --check`, and `rtk cargo check -p repo-tools`.
+- Verified `web-bff` CORS config behavior with `rtk cargo test -p web-bff config -- --test-threads=1`, `rtk cargo fmt -p web-bff -- --check`, and `rtk cargo check -p web-bff`.
+- Smoke-tested the binary-first `web-bff` path through SOPS env-file export, packaged binary startup, local libSQL bootstrap, and `GET /healthz` returning `{"status":"ok"}`.
+- Validated platform and resource control paths with `just validate-platform`, `just validate-topology`, `just verify-generated-artifacts`, `just boundary-check`, Podman compose profile config checks, and Podman resource lifecycle commands.
+
+### Migration Notes
+
+- Use `just sops-run` for local SOPS-backed processes and `just sops-export-env <deployable> <env> <systemd-binary|podman> <output>` for transient host env-files.
+- Use `just release-web-bff` and `just package-web-bff` before deploying a single-VPS binary; do not run `cargo build --release` on the runtime host.
+- Use `just podman-resources-up lite` for the low-resource local baseline and opt into `surrealdb`, `standard`, or `full` only when the behavior under test needs those resources.
+- Treat K3d and Multipass/K3s docs as advanced rehearsal guidance; they do not prove `k3s-ha` without separate 3+ server-node evidence.
+
 ## v0.5.0 - 2026-05-09
 
 ### SurrealDB Runtime Lane
@@ -95,7 +146,7 @@ Preferred release views:
 - Added ADR-010 to record the Generic OIDC plus Rauthy/OpenFGA local auth lane and marked ADR-005 as historical and superseded.
 - Updated `.env.example`, BFF docs, local infra docs, Docker docs, authz fixture docs, and operations docs to avoid provider-specific runtime env names as current guidance.
 - Audited README and agent context entrypoints to remove stale Phase language, overstated target-state claims, old observability assumptions, placeholder contact details, and statements that could make agents treat scratch plans or rendered manifests as current behavior.
-- Confirmed `AGENTS.md`, `agent/README.md`, `docs/agents/README.md`, `.agents/skills/README.md`, `agent/codemap.yml`, `routing-rules.yml`, and `gate-matrix.yml` remain aligned around executable evidence, scratch-doc boundaries, generated-readonly paths, and path/risk-based gate selection.
+- Confirmed `AGENTS.md`, `agent/README.md`, `.agents/skills/README.md`, `agent/codemap.yml`, `routing-rules.yml`, and `gate-matrix.yml` remain aligned around executable evidence, scratch-doc boundaries, generated-readonly paths, and path/risk-based gate selection.
 
 ### Verification
 
