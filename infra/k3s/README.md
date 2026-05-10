@@ -26,7 +26,7 @@ infra/k3s/
 1. `base/`：共享 namespace、rbac、network policy、configmap、deployment、service、ingress。
 2. `overlays/dev/`：当前默认参考 overlay。
 3. `overlays/staging/` 与 `overlays/prod/`：环境化 patch 与资源约束占位。
-4. `../../docs/operations/gitops.md`：GitOps 与交付约束说明。
+4. `../../docs/operations/advanced-topology/gitops.md`：GitOps 与交付约束说明。
 
 ## 不要这样用
 

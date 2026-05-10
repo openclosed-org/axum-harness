@@ -33,6 +33,6 @@ cargo run -p repo-tools -- infra auth down
 
 ## 不要这样用
 
-1. 不要把 `.env` 写成当前默认本地 secrets 路径；后端默认应优先看 `just sops-run`。
+1. 不要把 `.env` 写成当前默认本地 secrets 路径；后端默认应优先看 `just sops-run`，单 VPS profile 应看 `just sops-export-env`。
 2. 不要把前端或桌面壳层启动步骤写成所有后端任务的默认前置条件。
 3. 不要在这个 README 里重复维护所有 compose 细节，真实配置以 `repo-tools` 和 compose 文件为准。

@@ -25,7 +25,7 @@
 - name: surrealdb
   type: database
   description: |
-    External SurrealDB database server used like a Postgres-style operational datastore: managed as an independent process/container, configured through platform profiles and SOPS secrets, and accessed through repository ports.
+    External SurrealDB database server used as the preferred optional document/ graph operational datastore for this template. It is managed as an independent process/container when enabled by a resource preset, configured through platform profiles and SOPS secrets, and accessed through repository ports. PostgreSQL is not the reference backend for this repository.
   technology: surrealdb
   required_by:
   - tenant-service
@@ -34,7 +34,7 @@
 - name: turso
   type: database
   description: |
-    SQLite-compatible distributed database (libSQL). Primary data store for all services with multi-tenant isolation via row-level security. Local development uses embedded SQLite.
+    SQLite-compatible distributed database (libSQL). Primary low-resource path is embedded libSQL/SQLite file storage; Turso Cloud is an optional managed backend when teams want to externalize the database without operating a local database container. PostgreSQL is not the reference backend for this repository.
   technology: turso/libsql
   required_by:
   - counter-service

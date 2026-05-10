@@ -42,7 +42,7 @@ gate-release-candidate CLUSTER='axh-local':
 
 # Heavy VM/K3s rehearsal is intentionally protected until the 1.0 readiness pass.
 gate-pre-1-0-multipass-k3s:
-    @test "${RUN_HEAVY_LOCAL_K3S:-}" = "1" || (printf "This is a heavy pre-1.0 manual gate. Read docs/operations/k3s-local-multipass.md and rerun with RUN_HEAVY_LOCAL_K3S=1.\n" && exit 1)
+    @test "${RUN_HEAVY_LOCAL_K3S:-}" = "1" || (printf "This is a heavy pre-1.0 manual gate. Read docs/operations/advanced-topology/k3s-local-multipass.md and rerun with RUN_HEAVY_LOCAL_K3S=1.\n" && exit 1)
     just multipass-k3s-plan
 
 # Local compose SurrealDB persistence evidence. Keeps the volume unless CLEANUP=volumes is passed manually.

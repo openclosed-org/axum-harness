@@ -42,7 +42,7 @@ Local development topology. All deployables run on localhost with embedded or do
 
 ## single-vps
 
-Single VPS deployment topology. All services run on a single machine with Docker Compose. Suitable for small-scale production or staging. Includes all workers and observability stack.
+Single VPS deployment topology. First-party Rust deployables are binary-first and should be built outside the runtime host, then installed under systemd or run as prebuilt artifacts. Podman is used for selected official resource containers only when the chosen resource preset requires them.
 
 
 - **Version**: 1.0.0
@@ -50,11 +50,11 @@ Single VPS deployment topology. All services run on a single machine with Docker
 ### Deployables
 
 - ✅ web-bff (×1)
-- ✅ edge-gateway (×1)
-- ✅ outbox-relay-worker (×1)
-- ✅ indexer-worker (×1)
+- ⏸️ edge-gateway (×1)
+- ⏸️ outbox-relay-worker (×1)
+- ⏸️ indexer-worker (×1)
 - ⏸️ projector-worker (×1)
-- ✅ scheduler-worker (×1)
+- ⏸️ scheduler-worker (×1)
 - ⏸️ sync-reconciler-worker (×1)
 
 ---

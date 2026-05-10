@@ -1,18 +1,21 @@
-# Podman/Docker Compose — Core Infrastructure for Local Development
+# Podman/Docker Compose — Official Resource Containers
 #
 # Usage:
 #   docker compose -f infra/docker/compose/core.yaml up -d
 #   docker compose -f infra/docker/compose/core.yaml down
 #
-# This starts all core infrastructure services needed for development:
-#   - Turso (libSQL) database
-#   - NATS message broker (with JetStream)
-#   - Valkey/Dragonfly cache (Redis-compatible)
-#   - MinIO object storage (S3-compatible)
-#   - SurrealDB external database server (profile: surrealdb)
+# This file manages optional official resource containers. First-party Rust
+# deployables should be built outside the runtime host and run as binaries or
+# prebuilt images. Do not use VPS Podman or K3s nodes to compile first-party Rust.
+#
+# Resource preset intent:
+#   - lite: no default containers; use embedded/local/in-process/managed backends
+#   - surrealdb: SurrealDB official container only
+#   - standard: SurrealDB + NATS + Valkey
+#   - full: standard + heavier optional resources such as MinIO and sqld
 #
 # Stack:
-#   - turso:8080          — Turso/libSQL embedded database with HTTP gateway
+#   - sqld:8080           — optional libSQL server profile, not Turso Cloud
 #   - nats:4222           — NATS message broker (JetStream enabled)
 #   - nats:8222           — NATS monitoring HTTP
 #   - valkey:6379         — Valkey cache (Redis-compatible)
@@ -47,7 +50,7 @@ services:
       retries: 3
       start_period: 10s
     profiles:
-      - full  # Only start with `--profile full`
+      - full
 
   # ── NATS Message Broker ────────────────────────────────────
   # Used for: Event bus, pub/sub messaging, worker communication
@@ -72,6 +75,9 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
+    profiles:
+      - standard
+      - full
 
   # ── Valkey Cache (Redis-compatible) ────────────────────────
   # Used for: Caching, session storage, rate limiting
@@ -88,6 +94,9 @@ services:
       timeout: 3s
       retries: 5
       start_period: 5s
+    profiles:
+      - standard
+      - full
 
   # ── MinIO Object Storage ───────────────────────────────────
   # Used for: File uploads, backups, blob storage
@@ -109,6 +118,8 @@ services:
       timeout: 5s
       retries: 3
       start_period: 30s
+    profiles:
+      - full
 
   # ── MinIO Bucket Initialization ────────────────────────────
   # Creates default buckets after MinIO starts
@@ -125,6 +136,8 @@ services:
         mc mb -p myminio/temp 2>/dev/null || true;
         echo 'Buckets created successfully';
       "
+    profiles:
+      - full
 
   # ── SurrealDB Database Server ──────────────────────────────
   # Postgres-style local/single-VPS operation: independent DB server managed by
@@ -158,6 +171,8 @@ services:
       start_period: 10s
     profiles:
       - surrealdb
+      - standard
+      - full
 
 volumes:
   turso-data:

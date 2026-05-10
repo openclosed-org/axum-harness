@@ -144,7 +144,7 @@ These may be described in ADRs, platform model, or tooling notes, but should not
 
 - `docs/operations/counter-service-reference-chain.md`
 - `docs/adr/002-services-are-libraries-not-processes.md`
-- `docs/adr/003-runtime-abstraction-direct-plus-dapr.md`
+- `docs/archive/adr/003-runtime-abstraction-direct-plus-dapr.md`
 - `docs/adr/007-workers-first-async-architecture.md`
 - `services/counter-service/src/application/service.rs`
 - `services/counter-service/src/infrastructure/libsql_adapter.rs`

@@ -177,8 +177,9 @@ path_rules:
       - agent/**
       - .agents/**
       - docs/architecture/**
-      - docs/agents/**
-      - docs/language/**
+      - docs/adr/**
+      - docs/governance/**
+      - docs/archive/**
     recommended:
       - boundary_check
     required: []
@@ -201,8 +202,8 @@ path_rules:
       - justfiles/k3d.just
       - justfiles/multipass.just
       - docs/operations/gate-profiles.md
-      - docs/operations/k3d-local.md
-      - docs/operations/k3s-local-multipass.md
+      - docs/operations/advanced-topology/k3d-local.md
+      - docs/operations/advanced-topology/k3s-local-multipass.md
     recommended:
       - gate_ci_single_node
       - smoke_local_k3d
@@ -298,9 +299,10 @@ path_rules:
     recommended:
       - validate_platform
       - validate_topology
+      - sops_validate
       - smoke_local_k3d
     required: []
-    note: Runtime addon, compose, and secret-consumption changes need local runtime smoke when the local toolchain is available; use compose persistence for SurrealDB compose-only changes.
+    note: Runtime addon, compose, and secret-consumption changes need SOPS validation and local runtime smoke when the local toolchain is available; use compose persistence for SurrealDB compose-only changes.
 
   - match:
       - verification/**
@@ -352,6 +354,7 @@ risk_rules:
       - validate_topology
     add_recommended:
       - validate_platform
+      - sops_validate
       - verify_counter_delivery
       - smoke_local_k3d
     minimum_evidence: checked

@@ -20,6 +20,7 @@
 2. SOPS 解密已经被挂进 Flux Kustomization。
 3. `counter-service` 相关能力目前主要通过 `infra/k3s/overlays/dev`、`web-bff`、`outbox-relay-worker`、`projector-worker` 这条路径进入 GitOps；独立 `counter-service` deployable 仍只是未提升到默认路径的 declared/deferred 形态。
 4. GitOps is not a required dependency for backend-core local development.
+5. Cluster nodes do not compile first-party Rust code. GitOps should consume prebuilt artifacts/images produced by a developer machine or CI.
 
 ## 2. 当前真实文件落点
 
@@ -34,8 +35,10 @@
 
 按当前目录理解：
 
-1. `infrastructure/` 负责底层依赖，如 NATS、Valkey、MinIO、SurrealDB。
+1. `infrastructure/` 负责按需启用底层依赖，如 SurrealDB、NATS、Valkey、MinIO；它们是 capability backends，不是所有环境的默认税。
 2. `apps/` 负责应用或交付单元的 Kustomization。
+
+这与 single-VPS resource preset 语义一致：`lite` 不默认启动分布式资源；`standard/full` 才按业务压力启用更重的 resource backends。
 
 ### 2.2 与 counter 参考链的真实挂接点
 
@@ -55,7 +58,7 @@
 3. counter 的异步发布路径已经有独立 `outbox-relay-worker` Flux app 与 dev overlay，当前 overlay 中显式保持 replicas=1。
 4. `projector-worker` 已有独立 Flux app 与 dev overlay，当前 overlay 中显式保持 replicas=1。
 5. `counter-shared-db` secret 为 `web-bff` 与这些独立 worker 提供共享数据库入口。
-5. 独立 `counter-service` secrets 已预留，但 overlay 中仍注释掉了对应资源。
+6. 独立 `counter-service` secrets 已预留，但 overlay 中仍注释掉了对应资源。
 
 ## 3. 当前已经确认的事实
 
@@ -79,6 +82,8 @@
 2. `infra/gitops/flux/apps/api.yaml`、`infra/gitops/flux/apps/web.yaml` 中的所有 health checks、命名和 target resources 都已经与现状完全一致。
 3. `outbox-relay-worker` 与 `projector-worker` 当前在 dev overlay 中都显式配置为 `replicas=1`；因此更需要先通过 `just sops-verify-counter-shared-db dev` 和 `just verify-counter-delivery strict` 核实 shared secret、overlay 和 Flux 路径没有漂移。
 4. promotion、rollback、drift handling 已经通过一条统一且经验证的流水线完成。
+5. K3s/K3d nodes 会或应该在集群内编译 first-party Rust code。
+6. GitOps 当前已经证明 `k3s-ha`；K3d 和单节点/少节点 rehearsal 不能替代 3+ server-node HA evidence。
 
 因此这份文档的正确定位是：
 
@@ -121,3 +126,5 @@ GitOps 文档和 `secret-management.md` 是同一条工程链上的相邻两环�
 ## 7. 一句话结论
 
 当前仓库已经把 Flux/SOPS/GitOps 放进 cluster profile 的后端工程方向；`web-bff`、`outbox-relay-worker`、`projector-worker` 都已接入 shared counter DB secret，但它们当前仍不应被当成“完全闭环的生产交付模板”。`counter-service` 的独立 deployable、共享 worker 可靠性语义，以及后续 promotion/drift 闭环仍需继续补齐。
+
+GitOps 的正确目标是接收预构建应用 artifact/image、注入 SOPS-backed configuration，并协调按需资源；不是把集群节点变成 Cargo builder。

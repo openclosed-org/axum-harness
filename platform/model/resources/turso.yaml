@@ -2,8 +2,10 @@ name: turso
 type: database
 description: >
   SQLite-compatible distributed database (libSQL).
-  Primary data store for all services with multi-tenant isolation
-  via row-level security. Local development uses embedded SQLite.
+  Primary low-resource path is embedded libSQL/SQLite file storage; Turso
+  Cloud is an optional managed backend when teams want to externalize the
+  database without operating a local database container. PostgreSQL is not the
+  reference backend for this repository.
 
 technology: turso/libsql
 version: "0.1.0"
@@ -13,10 +15,15 @@ adapters:
   - packages/adapters/storage/sqlite
 
 local_dev:
-  compose_file: infra/local/compose/core.yaml
   env_vars:
     TURSO_DATABASE_URL: "file:local.db"
     TURSO_AUTH_TOKEN: "dev-token"
+
+single_vps:
+  presets:
+    lite: embedded-libsql-file-or-managed-turso-cloud
+    standard: embedded-libsql-file-or-managed-turso-cloud
+    full: managed-turso-cloud-optional
 
 encryption:
   at_rest: true

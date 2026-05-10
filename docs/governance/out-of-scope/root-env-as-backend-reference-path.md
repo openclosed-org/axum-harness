@@ -14,10 +14,10 @@ The backend reference path should keep secret names, injection shape, and deploy
 
 `.env` can remain a local convenience lane when a task is explicitly app-shell or host-tool scoped.
 
-Backend deployable work should prefer SOPS-compatible secret shape, `just sops-run`, or explicit `APP_*` exports for short debug loops.
+Backend deployable work should prefer SOPS/age secret shape, `just sops-run`, `just sops-export-env` for single-VPS profiles, or explicit `APP_*` exports for short debug loops.
 
 ## Related Guidance
 
 1. `docs/operations/secret-management.md`
 2. `docs/operations/backend-config-policy.md`
-3. `docs/language/platform-language.md`
+3. `docs/architecture/harness-philosophy.md`

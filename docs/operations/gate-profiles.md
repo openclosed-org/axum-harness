@@ -80,7 +80,7 @@ RUN_HEAVY_LOCAL_K3S=1 just gate-pre-1-0-multipass-k3s
 
 This profile is intentionally protected and documented-only for now. Use it before the 1.0 readiness pass, not in daily development.
 
-See `docs/operations/k3s-local-multipass.md`.
+See `docs/operations/advanced-topology/k3s-local-multipass.md`.
 
 ## Recommended Use
 

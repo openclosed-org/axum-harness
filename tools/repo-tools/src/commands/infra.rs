@@ -280,14 +280,15 @@ fn run_observability_compose(
 
 fn print_local_connection_info() {
     println!();
-    println!("Local infrastructure endpoints:");
-    println!("  Turso/libSQL HTTP: http://localhost:8080");
-    println!("  Turso/libSQL gRPC: grpc://localhost:5001");
-    println!("  NATS: nats://localhost:4222");
-    println!("  NATS monitor: http://localhost:8222");
-    println!("  Valkey: redis://localhost:6379");
-    println!("  MinIO API: http://localhost:9000");
-    println!("  MinIO Console: http://localhost:9001 (minioadmin/minioadmin)");
+    println!("Optional resource container endpoints when their profiles are enabled:");
+    println!("  SurrealDB: http://localhost:8000 (--profile surrealdb|standard|full)");
+    println!("  sqld/libSQL HTTP: http://localhost:8080 (--profile full)");
+    println!("  sqld/libSQL gRPC: grpc://localhost:5001 (--profile full)");
+    println!("  NATS: nats://localhost:4222 (--profile standard|full)");
+    println!("  NATS monitor: http://localhost:8222 (--profile standard|full)");
+    println!("  Valkey: redis://localhost:6379 (--profile standard|full)");
+    println!("  MinIO API: http://localhost:9000 (--profile full)");
+    println!("  MinIO Console: http://localhost:9001 (minioadmin/minioadmin, --profile full)");
 }
 
 fn print_observability_connection_info() {

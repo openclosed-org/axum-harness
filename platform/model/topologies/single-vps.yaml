@@ -1,9 +1,73 @@
 name: single-vps
 version: 1.0.0
 description: >
-  Single VPS deployment topology. All services run on a single
-  machine with Docker Compose. Suitable for small-scale production
-  or staging. Includes all workers and observability stack.
+  Single VPS deployment topology. First-party Rust deployables are
+  binary-first and should be built outside the runtime host, then
+  installed under systemd or run as prebuilt artifacts. Podman is used
+  for selected official resource containers only when the chosen
+  resource preset requires them.
+
+runtime_principles:
+  build_location: developer-machine-or-ci
+  runtime_host_compiles_first_party_rust: false
+  first_party_packaging_default: systemd-binary
+  podman_role: official-resource-containers
+
+resource_presets:
+  - name: lite
+    default: true
+    description: >
+      Low-resource VPS baseline for MVP and early business shape. Keeps the
+      backend entrypoint available while using embedded, managed, local, or
+      in-process backends with explicit semantic limits.
+    deployables:
+      web-bff: enabled
+      edge-gateway: optional
+      workers: disabled-by-default
+    resources:
+      database:
+        preferred: surrealdb-or-turso-cloud-when-needed
+        local_low_resource: embedded-libsql-file
+        postgres: not-a-reference-backend
+      cache:
+        backend: in-process-moka
+        semantic_limit: process-local-cache
+      eventing:
+        backend: in-process-or-db-outbox
+        semantic_limit: not-a-durable-broker
+      storage:
+        backend: local-filesystem
+        semantic_limit: host-local
+      observability:
+        backend: stdout-journald
+        semantic_limit: host-local-retention
+      authz:
+        backend: local-or-disabled
+        semantic_limit: no-external-policy-plane
+  - name: standard
+    default: false
+    description: >
+      Growing single-VPS shape. Adds selected Podman-managed official
+      resources only when the business workload needs them.
+    resources:
+      surrealdb: optional-podman-container
+      nats: optional-podman-container
+      valkey: optional-podman-container
+      turso-cloud: optional-managed-service
+      observability: optional-lightweight
+  - name: full
+    default: false
+    description: >
+      Full single-host resource set for stronger operational discipline before
+      moving to k3s-ha. This is not the minimum VPS baseline.
+    resources:
+      surrealdb: podman-container
+      nats: podman-container
+      valkey: podman-container
+      minio: podman-container
+      openfga: optional-podman-container
+      rauthy: optional-podman-container
+      observability: optional-podman-containers
 
 deployables:
   - name: web-bff
@@ -12,15 +76,21 @@ deployables:
 
   - name: edge-gateway
     replicas: 1
-    enabled: true
+    enabled: false
+    config:
+      preset: standard-or-full
 
   - name: outbox-relay-worker
     replicas: 1
-    enabled: true
+    enabled: false
+    config:
+      preset: standard-or-full
 
   - name: indexer-worker
     replicas: 1
-    enabled: true
+    enabled: false
+    config:
+      preset: standard-or-full
 
   - name: projector-worker
     replicas: 1
@@ -28,7 +98,9 @@ deployables:
 
   - name: scheduler-worker
     replicas: 1
-    enabled: true
+    enabled: false
+    config:
+      preset: standard-or-full
 
   - name: sync-reconciler-worker
     replicas: 1
@@ -37,23 +109,34 @@ deployables:
 resources:
   - name: turso
     enabled: true
+    config:
+      mode: "embedded-libsql-or-managed-turso-cloud"
+      preset: "lite"
 
   - name: surrealdb
-    enabled: true
+    enabled: false
     config:
       mode: "podman-compose"
       storage: "named-volume"
+      preset: "standard-or-full"
 
   - name: nats
-    enabled: true
+    enabled: false
+    config:
+      preset: "standard-or-full"
 
   - name: cache
     enabled: true
     config:
-      backend: "valkey"
+      backend: "moka"
+      external_backend: "valkey"
+      external_backend_preset: "standard-or-full"
 
   - name: observability
-    enabled: true
+    enabled: false
+    config:
+      lite_backend: "journald"
+      preset: "full"
 
 network:
   gateway: "0.0.0.0"

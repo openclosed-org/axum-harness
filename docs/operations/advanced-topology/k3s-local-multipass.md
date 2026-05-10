@@ -1,6 +1,8 @@
 # Multipass + K3s Pre-1.0 Rehearsal
 
 > Scope: documented heavy local VM/K3s rehearsal. Do not treat this as a daily gate on the 8GB Mac mini.
+>
+> This rehearsal is closer to VPS/node behavior than K3d, but it is still not `k3s-ha` proof. Runtime nodes consume prebuilt artifacts/images; they must not compile first-party Rust code during deployment.
 
 ## When To Use
 
@@ -11,6 +13,8 @@ Run this only when preparing for the 1.0 readiness pass or when validating behav
 3. systemd behavior
 4. node-level failure boundaries
 5. closer VPS-like networking
+
+Do not use this lane to justify a heavier default local or single-VPS baseline. Resource components should still be enabled only when the preset or test objective requires them.
 
 Do not run Colima/K3d and Multipass at the same time on the 8GB Mac mini.
 
@@ -80,6 +84,14 @@ Before 1.0, validate at least:
 5. SurrealDB PVC survives pod restart.
 6. Flux infrastructure Kustomization can reconcile.
 7. Core stack can recover after VM stop/start.
+
+This rehearsal should also confirm that app Deployments consume prebuilt images/artifacts and do not run `cargo build` on K3s nodes.
+
+## HA Boundary
+
+The VM shape above is `1 server + 2 agents`. It is useful for node separation and restart behavior, but it is not HA control-plane evidence.
+
+Before claiming `k3s-ha`, use at least 3 server nodes. Move to 5 or 7 only when quorum, failure-domain, availability, or load evidence justifies the cost.
 
 ## Cleanup
 

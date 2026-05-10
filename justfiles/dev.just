@@ -17,15 +17,15 @@ dev-api:
 dev-desktop ARGS='':
     cargo run -p repo-tools -- apps dev-desktop {{ARGS}}
 
-# 启动本地 core infra（NATS/DB/Gateway 等）
+# 启动本地轻量资源 preset。默认不启动重资源容器。
 deploy-dev:
-    @echo "Starting local core infrastructure..."
-    cargo run -p repo-tools -- infra local up
+    @echo "Starting local lite resource preset..."
+    just podman-resources-up lite
 
-# 启动本地 core infra + observability
+# 启动本地 standard 资源 preset + observability
 deploy-dev-full:
     @echo "Starting dev infrastructure + observability..."
-    cargo run -p repo-tools -- infra local up
+    just podman-resources-up standard
     cargo run -p repo-tools -- infra local observability up
 
 # 启动本地 auth stack（Rauthy + OpenFGA local reference）

@@ -1,6 +1,8 @@
 # Local K3d Profile
 
 > Scope: low-resource local Kubernetes verification using Colima + K3d on macOS.
+>
+> This is a local shape smoke, not `k3s-ha` proof. K3d nodes must consume prebuilt application images/artifacts; they are not Cargo builders.
 
 ## Resource Target
 
@@ -73,6 +75,8 @@ This verifies:
 6. SurrealDB Service DNS is reachable in-cluster.
 7. SurrealDB PVC survives a pod restart.
 
+It does not verify multi-server `k3s-ha`, production rollout/rollback, or first-party app image build policy. Application artifacts must still be built outside the cluster.
+
 ## Full Local K3d Gate
 
 Run:
@@ -116,6 +120,8 @@ colima delete
 2. K3d local storage proves pod restart persistence, not cross-machine storage migration.
 3. Current Kubernetes manifests mainly declare infrastructure addons; app and worker Deployments are not yet complete pod-level runtime evidence.
 4. Observability smoke is currently validator/config evidence until collector stack manifests are declared.
+5. K3d is not `k3s-ha` evidence. HA claims require real multi-server K3s evidence, starting at 3 server nodes.
+6. K3d must not become a path for compiling first-party Rust code inside cluster nodes.
 
 ## Docker, Colima, And Podman
 
@@ -125,7 +131,7 @@ Use Colima's Docker runtime for this K3d profile:
 colima start --cpu 4 --memory 4 --disk 30 --runtime docker --dns 1.1.1.1 --dns 8.8.8.8
 ```
 
-Podman remains supported for local compose-style infrastructure such as `infra/docker/compose/core.yaml`, but it is not the default runtime for `local-k3d`.
+Podman remains supported for local resource containers through `just podman-resources-up <lite|surrealdb|standard|full>`, but it is not the default runtime for `local-k3d`.
 
 Reason: K3d is built around the Docker API and Docker-style network/volume behavior. Podman can expose a Docker-compatible socket in some setups, but that path is more compatibility-sensitive and is not the low-risk default for this repository.
 

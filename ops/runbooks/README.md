@@ -31,7 +31,7 @@ cargo run -p repo-tools -- ops migrate --env local --direction up --dry-run
 kubectl apply -k infra/k3s/overlays/dev
 ```
 
-For GitOps or production delivery, read `docs/operations/gitops.md` and `infra/k3s/README.md` first. Do not treat the dev overlay command as a complete release process.
+For GitOps or production delivery, read `docs/operations/advanced-topology/gitops.md` and `infra/k3s/README.md` first. Do not treat the dev overlay command as a complete release process.
 
 ### Check Service Health
 ```bash

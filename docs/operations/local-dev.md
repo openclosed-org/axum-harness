@@ -8,7 +8,7 @@
 
 当前本地开发应优先理解为两层：
 
-1. 基础依赖层：`repo-tools infra local ...` 管理 NATS、Valkey、MinIO，以及可选的 sqld 相关基础设施。
+1. 资源容器层：`just podman-resources-*` 按需管理官方资源容器，例如 SurrealDB、NATS、Valkey、MinIO，以及可选 sqld/libSQL server；`repo-tools infra local ...` 是较底层的 compose 控制面。
 2. 本地 auth 层：`repo-tools infra auth ...` 管理 `Generic OIDC + OpenFGA`，当前本地参考 IdP 是 Rauthy。
 3. 应用运行层：通过 `just` / `moon` 启动 `web-bff`、其他 BFF 或需要的开发进程。
 
@@ -20,12 +20,18 @@
 2. `Generic OIDC + OpenFGA` 是可选增强，不应成为所有本地后端开发的前提。
 3. 若当前任务只关心后端 handler / service / contracts，可优先使用 `APP_AUTH_MODE=dev_headers` 做本地接口调试。
 
-当前本地与 CI 的验证入口也按 profile 区分：
+当前本地与 CI 的验证入口也按 profile 区分。默认路径优先保持低资源，重组件是 opt-in：
 
 1. GitHub CI/CD 对齐的单机向基础门禁：`just gate-ci-single-node`
 2. 低资源本地 Kubernetes profile：`just smoke-local-k3d` 或 `just gate-local-k3d`
 3. 可选 auth lane：`just verify-auth-optional` + `just test-auth-optional`
 4. 可选 SurrealDB lane：`just verify-backend-alternative` + `just test-backend-alternative`
+
+单 VPS 和本地开发的资源预算按 preset 理解：
+
+1. `lite`：默认低资源形态，使用 embedded libSQL/SQLite、Turso Cloud（可选托管）、Moka、stdout/journald、本地文件或禁用的轻量 adapter。
+2. `standard`：按需开启 Podman 管理的 SurrealDB、NATS、Valkey 等官方资源容器。
+3. `full`：完整单机资源栈，用于业务压力证明需要之后，不是最小启动门槛。
 
 ## 2. 推荐阅读顺序
 
@@ -35,7 +41,7 @@
 2. `docs/operations/counter-service-reference-chain.md`
 3. `infra/local/README.md`
 4. `docs/operations/gate-profiles.md`
-5. `docs/operations/k3d-local.md`
+5. `docs/operations/advanced-topology/k3d-local.md`
 6. `justfiles/dev.just`
 7. `justfiles/gates.just`
 8. `justfiles/k3d.just`
@@ -76,11 +82,19 @@ just doctor-full
 
 ### 3.2 启动基础依赖
 
-当前本地基础设施入口是：
+当前本地轻量资源入口是：
 
 ```bash
 just deploy-dev
 just status-dev
+```
+
+`just deploy-dev` 对齐 `lite` preset，不启动重资源容器。如果需要官方资源容器，显式选择：
+
+```bash
+just podman-resources-up surrealdb
+just podman-resources-up standard
+just podman-resources-up full
 ```
 
 当任务涉及本地 `Generic OIDC/OpenFGA` 时，再额外启动：
@@ -90,7 +104,7 @@ just auth-bootstrap
 # load infra/local/generated/auth.env in your shell if the process needs those values
 ```
 
-脚本当前会管理的核心依赖包括：
+脚本可按需管理的核心依赖包括：
 
 1. NATS
 2. Valkey
@@ -102,8 +116,10 @@ just auth-bootstrap
 需要注意：
 
 1. 默认业务路径仍主要使用嵌入式 libSQL/SQLite 形态。
-2. sqld 是可选的本地实验路径，不应写成所有开发都必须依赖的默认前提。
-3. SurrealDB 是可选实验 lane，默认按独立 DB server 使用，不应让默认主链编译 SurrealDB Rust SDK。
+2. Turso Cloud 是可选托管 backend，可用于低资源 VPS 外部化数据库而不运行本地 DB 容器。
+3. sqld 是可选的本地实验路径，不应写成所有开发都必须依赖的默认前提。
+4. SurrealDB 是本项目优先考虑的可选外部 DB server lane；启用时按独立官方容器/进程管理，不应让默认主链编译 SurrealDB Rust SDK。
+5. PostgreSQL 不是当前仓库 reference backend。
 
 ### 3.3 启动后端开发进程
 
@@ -159,7 +175,145 @@ cargo run -p repo-tools -- infra local down --volumes
 
 这条原则和版本升级策略一致：先 pin 和 smoke，再清理过期缓存；不要用大范围删除来掩盖版本或迁移问题。
 
-### 3.3.2 后端优先的最小调试模式
+### 3.3.2 Rust 与 Podman 磁盘预期
+
+Rust 后端模板的运行镜像可以很小，但开发期编译缓存不会小。新用户应先建立这个预期：
+
+1. Rust release binary/runtime artifact 可以很小，但 `target/` 不会小。
+2. Rust `target/` 在活跃开发中可能增长到 `20-50GB`。
+3. 多次 `test`、`clippy`、release build、失败的 image build 后，`target/` 加容器缓存合计达到 `50-100GB` 并不异常。
+4. Cargo registry/git cache 通常另占数 GB。
+5. 如果把 first-party Rust app 放到 Podman 内编译，builder base image 和 dangling build layers 会占数 GB；这不是 single-VPS 推荐路径。
+
+建议硬件预期：
+
+1. 最低可尝试：4 cores、8GiB RAM、30GiB free disk。
+2. 推荐本地开发：8 cores、16GiB RAM、60GiB+ free disk。
+3. single-VPS runtime host 不应承担 Rust 编译。VPS 只接收本地/CI 产出的 binary 或 prebuilt image。
+4. Podman machine disk 推荐 `100GiB` 只适用于本地反复运行资源容器、镜像验证或可选 image proof，不是低配 VPS 的默认要求。
+
+常用观测命令：
+
+```bash
+just storage-report
+just sccache-stats
+just podman-doctor
+just podman-disk
+```
+
+常用保守清理命令：
+
+```bash
+just clean-local-storage
+just podman-prune-build-cache
+just clean-run-artifacts
+```
+
+`just podman-prune-build-cache` 只清理 dangling images/build layers，不删除 volumes。若要更激进清理 unused containers/images/networks，可用：
+
+```bash
+just podman-prune-unused
+```
+
+不要默认使用 volume cleanup；MinIO、Valkey、NATS、OpenFGA、SurrealDB 等本地状态可能保存在 volumes 中。
+
+若明确要释放所有本地编译产物、sccache、Podman images/containers/volumes，可使用显式破坏性命令：
+
+```bash
+just clean-aggressive-local
+just podman-reset-all-i-know-this-deletes-state
+```
+
+这会删除 `target/`、`.sccache`、全局 Mozilla sccache、`.run`、`.tmp` 选定测试产物，以及全部 Podman images/containers/volumes。后续 `just` 命令会按需重新编译和重新拉取资源镜像。
+
+### 3.3.3 编译加速工具
+
+仓库支持两类 Rust 编译优化：
+
+1. `sccache`：缓存 rustc 编译结果，适合重复构建、分支切换和 CI-like 本地验证。
+2. `cargo-hakari`：维护 `packages/workspace-hack`，减少 workspace 内依赖 feature 组合导致的重复编译。
+
+安装/检查：
+
+```bash
+just setup-sccache
+just setup-sccache-verify
+just setup-hakari-verify
+```
+
+启用 `sccache` 可以使用一次性 just 命令，或显式环境变量。推荐先用一次性命令避免污染全局 shell：
+
+```bash
+just build-with-sccache
+just build-release-with-sccache
+just release-web-bff-with-sccache
+```
+
+这些命令使用项目级 `.sccache`，并只对当前 invocation 设置 `SCCACHE_DIR="$PWD/.sccache" RUSTC_WRAPPER=sccache`。
+
+如果希望长期启用，再设置环境变量：
+
+```bash
+mise set RUSTC_WRAPPER=sccache
+mise set SCCACHE_DIR "$PWD/.sccache"
+```
+
+如果 `just sccache-stats` 显示 `Compile requests 0`，说明当前构建没有走 `sccache`。
+
+如需彻底删除 sccache 缓存：
+
+```bash
+just sccache-purge
+```
+
+当 `cargo-hakari` drift 时，使用独立变更刷新：
+
+```bash
+just hakari-update
+```
+
+### 3.3.4 Binary-first 与 Podman 资源容器
+
+运行环境不负责编译 first-party Rust code。默认 single-VPS 路径是 binary-first：
+
+```bash
+just release-web-bff
+just package-web-bff
+just sops-export-env web-bff dev systemd-binary .run/web-bff.env
+just smoke-web-bff-binary
+```
+
+Podman 在 single-VPS/local profile 中主要管理官方资源容器：
+
+```bash
+just podman-doctor
+just podman-resources-up lite
+just podman-resources-up surrealdb
+just podman-resources-up standard
+just podman-resources-status
+just podman-resources-down
+```
+
+资源 preset 语义：
+
+1. `lite`：不启动默认 Podman 资源；使用 embedded/local/in-process/managed backends。
+2. `surrealdb`：只启动 SurrealDB 官方容器，用于本项目优先外部 DB lane。
+3. `standard`：启动 SurrealDB、NATS、Valkey。
+4. `full`：启动标准资源、MinIO、sqld/libSQL server 等 compose profile 中的重资源；observability/auth 仍由独立命令面控制。
+
+如果团队选择 first-party app container，也应在本地/CI 先构建 binary，再构建只复制 artifact 的 runtime image，或把 prebuilt image 传到 VPS。不要在 VPS Podman 或 K3s 节点里 `cargo build --release`。
+
+低配 VPS 的目标是避免分布式税：功能入口不消失，但 backend 可以是轻量 adapter 或关闭状态。语义限制必须明确，例如 Moka 是进程内 cache，stdout/journald 不是集中式 observability，in-process event bus 不是 durable broker。
+
+若本地 Podman machine 只是运行资源容器，通常不需要为 Rust release image build 调到很高内存。macOS 上若确实做 image proof，可调整：
+
+```bash
+podman machine stop podman-machine-default
+podman machine set --memory 6144 podman-machine-default
+podman machine start podman-machine-default
+```
+
+### 3.3.5 后端优先的最小调试模式
 
 如果当前任务只围绕后端接口、tenant flow、counter flow，而不希望被 `web` / `tauri` / 本地 OIDC provider 阻塞，可以直接使用：
 
@@ -207,11 +361,18 @@ just sops-run outbox-relay-worker dev 'cargo run -p outbox-relay-worker'
 just sops-run projector-worker dev 'cargo run -p projector-worker'
 ```
 
+单 VPS `systemd-binary` 或 `podman` profile 使用宿主机临时 env-file，而不是 `.env`：
+
+```bash
+just sops-export-env web-bff dev systemd-binary /run/axum-harness/web-bff.env
+just sops-export-env web-bff dev podman /run/axum-harness/web-bff.env
+```
+
 原因：
 
 1. 这与集群中的 `SOPS -> Kustomize/Flux` 路径保持环境变量形状一致。
 2. 可以避免本地路径和交付路径分叉得过早。
-3. 若要走本地 Podman auth 栈，可先 `source infra/local/generated/auth.env`，再用 host-process 或 `just sops-run` 启动 `web-bff`。
+3. 若要走本地 Podman auth 栈，可先 `source infra/local/generated/auth.env`，再用 host-process、`just sops-run` 或 `just sops-export-env` 启动 `web-bff`。
 
 ## 4. 平台支持边界
 

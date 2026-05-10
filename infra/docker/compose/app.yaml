@@ -1,10 +1,12 @@
-# Podman Compose — Main Application Stack
+# Podman Compose — Optional Application Image Proof Stack
 #
 # Usage:
 #   podman compose -f infra/docker/compose/app.yaml up -d
 #   podman compose -f infra/docker/compose/app.yaml down
 #
-# This starts the BFF services with SurrealDB sidecar and Pingora gateway.
+# This file is not the recommended single-VPS deployment path. Runtime hosts
+# should not compile first-party Rust code. Prefer binary-first systemd
+# deployment, or use prebuilt images produced by a developer machine or CI.
 # Optional shell applications, if retained, should run from their own local command surface.
 #
 # Stack:
@@ -53,19 +55,12 @@ services:
     expose:
       - "3010"
     environment:
-      - WEB_BFF_DATABASE__URL=file:/data/web-bff.db
-      - WEB_BFF_SERVER__HOST=0.0.0.0
-      - WEB_BFF_SERVER__PORT=3010
+      - APP_DATABASE_URL=file:/tmp/web-bff.db
+      - APP_SERVER_HOST=0.0.0.0
+      - APP_SERVER_PORT=3010
       - RUST_LOG=info,web-bff=debug
     volumes:
       - web-bff-data:/data
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3010/healthz"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-      start_period: 30s
-
   # ── Web Static Server (SvelteKit SPA) ──────────────────────
   # Serves the SvelteKit build output with SPA fallback routing.
   web-static:

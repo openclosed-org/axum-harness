@@ -1,9 +1,11 @@
 name: surrealdb
 type: database
 description: >
-  External SurrealDB database server used like a Postgres-style operational
-  datastore: managed as an independent process/container, configured through
-  platform profiles and SOPS secrets, and accessed through repository ports.
+  External SurrealDB database server used as the preferred optional document/
+  graph operational datastore for this template. It is managed as an
+  independent process/container when enabled by a resource preset, configured
+  through platform profiles and SOPS secrets, and accessed through repository
+  ports. PostgreSQL is not the reference backend for this repository.
 
 technology: surrealdb
 version: "3.0.5"
@@ -23,6 +25,11 @@ local_dev:
     APP_SURREALDB_TENANT_SCOPE: "platform"
 
 single_vps:
+  default_enabled: false
+  presets:
+    lite: off
+    standard: optional-podman-container
+    full: podman-container
   runtime: podman-compose
   storage: named-volume
   volume: surrealdb-data
