@@ -1,0 +1,58 @@
+key: admin
+kind: governance_capability
+description: >
+  Administrative operation capability. Admin tools must invoke explicit
+  application use cases, preserve service invariants, and emit audit events
+  instead of mutating storage directly.
+
+states:
+  disabled:
+    supported: true
+    default_provider: admin.disabled
+    semantic_limits:
+      - admin operations are rejected before application use cases run
+      - denial is still written to the audit sink
+    evidence: tested
+
+  local_mock:
+    supported: true
+    default_provider: admin.in-memory-fixture
+    semantic_limits:
+      - process-local use-case fixture only
+      - audit durability depends on the composed audit_log provider
+    evidence: tested
+
+  local_real:
+    supported: false
+    reason: local durable admin operation ledger and server composition are not implemented yet.
+    evidence: declared
+
+  external_single_node:
+    supported: false
+    reason: single-node admin runtime integration is not implemented yet.
+    evidence: declared
+
+  external_distributed:
+    supported: false
+    reason: distributed admin workflow, approval, and replay semantics are not implemented yet.
+    evidence: declared
+
+providers:
+  - key: admin.disabled
+    technology: none
+    ownership: repository-local
+    notes: Admin operation entrypoint disabled.
+
+  - key: admin.in-memory-fixture
+    technology: in-memory-fixture
+    ownership: repository-local
+    notes: Framework-neutral admin operation executor for local tests.
+
+adapters:
+  - key: admin.fixture-adapter
+    path: packages/governance
+    notes: Admin operation executor delegates to use-case ports and appends audit events.
+
+resource_entities:
+  - key: admin-operation
+    purpose: Protected administrative mutation request handled through service-preserving use cases.

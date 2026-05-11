@@ -1,0 +1,57 @@
+key: product_analytics
+kind: governance_capability
+description: >
+  Server-side product analytics capability for product events. Product events are
+  runtime records emitted by backend composition and are separate from security
+  audit events.
+
+states:
+  disabled:
+    supported: true
+    default_provider: product_analytics.disabled
+    semantic_limits:
+      - product events are skipped
+    evidence: tested
+
+  local_mock:
+    supported: true
+    default_provider: product_analytics.in-memory-recorder
+    semantic_limits:
+      - process-local recorder only
+      - development and tests only
+    evidence: tested
+
+  local_real:
+    supported: false
+    reason: durable local product analytics ledger is not implemented yet.
+    evidence: declared
+
+  external_single_node:
+    supported: false
+    reason: external analytics provider adapter is not implemented yet.
+    evidence: declared
+
+  external_distributed:
+    supported: false
+    reason: distributed analytics pipeline and export semantics are not implemented yet.
+    evidence: declared
+
+providers:
+  - key: product_analytics.disabled
+    technology: none
+    ownership: repository-local
+    notes: Product analytics disabled.
+
+  - key: product_analytics.in-memory-recorder
+    technology: in-memory
+    ownership: repository-local
+    notes: In-memory server-side product event recorder.
+
+adapters:
+  - key: product_analytics.memory-adapter
+    path: packages/governance
+    notes: ProductEventRecorder and ProductEventService local implementation.
+
+resource_entities:
+  - key: product-event-stream
+    purpose: Server-side product behavior event stream.

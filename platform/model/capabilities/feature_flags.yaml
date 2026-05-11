@@ -1,0 +1,60 @@
+key: feature_flags
+kind: governance_capability
+description: >
+  Runtime feature flag capability for product behavior. Product flags are
+  evaluated through runtime providers and must not be implemented as Cargo
+  features for per-tenant or per-user behavior.
+
+states:
+  disabled:
+    supported: true
+    default_provider: feature_flags.static-config
+    semantic_limits:
+      - unknown flags resolve to caller-provided defaults
+    evidence: tested
+
+  local_mock:
+    supported: true
+    default_provider: feature_flags.static-config
+    semantic_limits:
+      - static/config rules only
+      - no cross-process updates
+    evidence: tested
+
+  local_real:
+    supported: true
+    default_provider: feature_flags.local-db
+    semantic_limits:
+      - local in-memory DB-shaped provider in tests only
+      - durable DB adapter is not implemented yet
+    evidence: tested
+
+  external_single_node:
+    supported: false
+    reason: external feature flag provider adapter is not implemented yet.
+    evidence: declared
+
+  external_distributed:
+    supported: false
+    reason: distributed flag evaluation, streaming, and consistency semantics are not implemented yet.
+    evidence: declared
+
+providers:
+  - key: feature_flags.static-config
+    technology: static-config
+    ownership: repository-local
+    notes: Runtime static/config feature flag rules.
+
+  - key: feature_flags.local-db
+    technology: in-memory-db-shaped-store
+    ownership: repository-local
+    notes: Runtime-updatable local feature flag provider for tests.
+
+adapters:
+  - key: feature_flags.runtime-adapter
+    path: packages/governance
+    notes: RuntimeFeatureFlagProvider supports static, config, and DB-shaped modes.
+
+resource_entities:
+  - key: feature-flag-rule
+    purpose: Runtime product behavior flag rule.

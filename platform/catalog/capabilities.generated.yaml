@@ -1,3 +1,50 @@
+- key: admin
+  kind: governance_capability
+  description: |
+    Administrative operation capability. Admin tools must invoke explicit application use cases, preserve service invariants, and emit audit events instead of mutating storage directly.
+  states:
+    disabled:
+      default_provider: admin.disabled
+      evidence: tested
+      semantic_limits:
+      - admin operations are rejected before application use cases run
+      - denial is still written to the audit sink
+      supported: true
+    external_distributed:
+      evidence: declared
+      reason: distributed admin workflow, approval, and replay semantics are not implemented yet.
+      supported: false
+    external_single_node:
+      evidence: declared
+      reason: single-node admin runtime integration is not implemented yet.
+      supported: false
+    local_mock:
+      default_provider: admin.in-memory-fixture
+      evidence: tested
+      semantic_limits:
+      - process-local use-case fixture only
+      - audit durability depends on the composed audit_log provider
+      supported: true
+    local_real:
+      evidence: declared
+      reason: local durable admin operation ledger and server composition are not implemented yet.
+      supported: false
+  providers:
+  - key: admin.disabled
+    notes: Admin operation entrypoint disabled.
+    ownership: repository-local
+    technology: none
+  - key: admin.in-memory-fixture
+    notes: Framework-neutral admin operation executor for local tests.
+    ownership: repository-local
+    technology: in-memory-fixture
+  adapters:
+  - key: admin.fixture-adapter
+    notes: Admin operation executor delegates to use-case ports and appends audit events.
+    path: packages/governance
+  resource_entities:
+  - key: admin-operation
+    purpose: Protected administrative mutation request handled through service-preserving use cases.
 - key: audit_log
   kind: governance_capability
   description: |
@@ -503,6 +550,55 @@
     purpose: Live event publication boundary.
   - key: outbox-relay
     purpose: Durable outbox relay source and delivery process identity.
+- key: feature_flags
+  kind: governance_capability
+  description: |
+    Runtime feature flag capability for product behavior. Product flags are evaluated through runtime providers and must not be implemented as Cargo features for per-tenant or per-user behavior.
+  states:
+    disabled:
+      default_provider: feature_flags.static-config
+      evidence: tested
+      semantic_limits:
+      - unknown flags resolve to caller-provided defaults
+      supported: true
+    external_distributed:
+      evidence: declared
+      reason: distributed flag evaluation, streaming, and consistency semantics are not implemented yet.
+      supported: false
+    external_single_node:
+      evidence: declared
+      reason: external feature flag provider adapter is not implemented yet.
+      supported: false
+    local_mock:
+      default_provider: feature_flags.static-config
+      evidence: tested
+      semantic_limits:
+      - static/config rules only
+      - no cross-process updates
+      supported: true
+    local_real:
+      default_provider: feature_flags.local-db
+      evidence: tested
+      semantic_limits:
+      - local in-memory DB-shaped provider in tests only
+      - durable DB adapter is not implemented yet
+      supported: true
+  providers:
+  - key: feature_flags.static-config
+    notes: Runtime static/config feature flag rules.
+    ownership: repository-local
+    technology: static-config
+  - key: feature_flags.local-db
+    notes: Runtime-updatable local feature flag provider for tests.
+    ownership: repository-local
+    technology: in-memory-db-shaped-store
+  adapters:
+  - key: feature_flags.runtime-adapter
+    notes: RuntimeFeatureFlagProvider supports static, config, and DB-shaped modes.
+    path: packages/governance
+  resource_entities:
+  - key: feature-flag-rule
+    purpose: Runtime product behavior flag rule.
 - key: inbound_webhooks
   kind: integration_capability
   description: |
@@ -725,6 +821,52 @@
   resource_entities:
   - key: outbound-webhook-delivery
     purpose: Registry and delivery ledger for outbound webhook attempts; currently in-memory reference semantics only.
+- key: product_analytics
+  kind: governance_capability
+  description: |
+    Server-side product analytics capability for product events. Product events are runtime records emitted by backend composition and are separate from security audit events.
+  states:
+    disabled:
+      default_provider: product_analytics.disabled
+      evidence: tested
+      semantic_limits:
+      - product events are skipped
+      supported: true
+    external_distributed:
+      evidence: declared
+      reason: distributed analytics pipeline and export semantics are not implemented yet.
+      supported: false
+    external_single_node:
+      evidence: declared
+      reason: external analytics provider adapter is not implemented yet.
+      supported: false
+    local_mock:
+      default_provider: product_analytics.in-memory-recorder
+      evidence: tested
+      semantic_limits:
+      - process-local recorder only
+      - development and tests only
+      supported: true
+    local_real:
+      evidence: declared
+      reason: durable local product analytics ledger is not implemented yet.
+      supported: false
+  providers:
+  - key: product_analytics.disabled
+    notes: Product analytics disabled.
+    ownership: repository-local
+    technology: none
+  - key: product_analytics.in-memory-recorder
+    notes: In-memory server-side product event recorder.
+    ownership: repository-local
+    technology: in-memory
+  adapters:
+  - key: product_analytics.memory-adapter
+    notes: ProductEventRecorder and ProductEventService local implementation.
+    path: packages/governance
+  resource_entities:
+  - key: product-event-stream
+    purpose: Server-side product behavior event stream.
 - key: quota_credits
   kind: commercial_capability
   description: |
