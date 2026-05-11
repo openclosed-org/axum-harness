@@ -754,13 +754,16 @@ fn secret_binding_name_error(
     topology_name: &str,
     provider: Option<&str>,
 ) -> Option<String> {
-    let secret_parts = token_parts(secret_binding).collect::<BTreeSet<_>>();
-    if secret_parts.iter().any(|part| is_state_like_token(part)) {
+    let secret_parts = normalized_token_parts(secret_binding).collect::<BTreeSet<_>>();
+    if secret_parts
+        .iter()
+        .any(|part| is_state_like_token(part.as_str()))
+    {
         return Some("state-like token is part of stable secret identity".to_string());
     }
 
     if !topology_name.is_empty() {
-        let topology_parts = token_parts(topology_name).collect::<BTreeSet<_>>();
+        let topology_parts = normalized_token_parts(topology_name).collect::<BTreeSet<_>>();
         if let Some(part) = topology_parts.intersection(&secret_parts).next() {
             return Some(format!(
                 "topology token '{part}' is part of stable secret identity"
@@ -769,7 +772,7 @@ fn secret_binding_name_error(
     }
 
     if let Some(provider) = provider {
-        let provider_parts = token_parts(provider).collect::<BTreeSet<_>>();
+        let provider_parts = normalized_token_parts(provider).collect::<BTreeSet<_>>();
         if let Some(part) = provider_parts.intersection(&secret_parts).next() {
             return Some(format!(
                 "provider token '{part}' is part of stable secret identity"
@@ -782,6 +785,10 @@ fn secret_binding_name_error(
 
 fn token_parts(value: &str) -> impl Iterator<Item = &str> {
     value.split(['-', '_', '.']).filter(|part| !part.is_empty())
+}
+
+fn normalized_token_parts(value: &str) -> impl Iterator<Item = String> + '_ {
+    token_parts(value).map(str::to_ascii_lowercase)
 }
 
 fn is_state_like_token(value: &str) -> bool {
@@ -892,6 +899,7 @@ mod tests {
     #[test]
     fn secret_binding_name_rejects_state_topology_and_provider_tokens() {
         assert!(secret_binding_name_error("billing-local-secret", "single-vps", None).is_some());
+        assert!(secret_binding_name_error("billing-LOCAL-secret", "single-vps", None).is_some());
         assert!(secret_binding_name_error("web-bff-single-secret", "single-vps", None).is_some());
         assert!(
             secret_binding_name_error("creem-webhook-secret", "single-vps", Some("billing.creem"))

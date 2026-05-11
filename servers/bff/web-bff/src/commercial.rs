@@ -344,6 +344,23 @@ mod tests {
         );
         assert_eq!(commercial.usage_events_for_test().await.len(), 1);
     }
+
+    #[tokio::test]
+    async fn counter_write_guard_is_noop_when_commercial_disabled() {
+        let commercial = CommercialStack::disabled("counter.write");
+
+        let guard = commercial
+            .guard_counter_write("tenant-a", "user-a")
+            .await
+            .unwrap();
+        guard.commit().await.unwrap();
+
+        let guard = commercial
+            .guard_counter_write("tenant-a", "user-a")
+            .await
+            .unwrap();
+        guard.release().await;
+    }
 }
 
 #[derive(Clone)]

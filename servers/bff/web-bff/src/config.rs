@@ -501,6 +501,31 @@ mod tests {
     }
 
     #[test]
+    fn parses_canonical_commercial_capability_states() {
+        let cases = [
+            ("disabled", CommercialCapabilityState::Disabled),
+            ("local_mock", CommercialCapabilityState::LocalMock),
+            ("local_real", CommercialCapabilityState::LocalReal),
+            (
+                "external_single_node",
+                CommercialCapabilityState::ExternalSingleNode,
+            ),
+            (
+                "external_distributed",
+                CommercialCapabilityState::ExternalDistributed,
+            ),
+        ];
+
+        for (value, expected) in cases {
+            let config = Config {
+                commercial_mode: value.to_string(),
+                ..Config::default()
+            };
+            assert_eq!(config.commercial_capability_state().unwrap(), expected);
+        }
+    }
+
+    #[test]
     fn production_allows_local_real_commercial_mode() {
         let config = Config {
             commercial_mode: "local_real".to_string(),
