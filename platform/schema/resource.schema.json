@@ -31,10 +31,11 @@
       "items": { "type": "string" },
       "description": "Package paths for adapters that connect to this resource"
     },
-    "local_dev": {
+    "local_development": {
       "type": "object",
       "properties": {
         "compose_file": { "type": "string" },
+        "profile": { "type": "string" },
         "port": { "type": "integer" },
         "env_vars": {
           "type": "object",

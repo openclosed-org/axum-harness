@@ -11,7 +11,7 @@ version: "0.12"
 adapters:
   - packages/adapters/cache
 
-local_dev:
+local_development:
   env_vars:
     CACHE_BACKEND: "moka"
     CACHE_TTL_SECONDS: "300"

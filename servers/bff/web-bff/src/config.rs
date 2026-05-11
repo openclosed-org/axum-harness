@@ -60,7 +60,7 @@ pub struct Config {
     pub surrealdb_pass: Option<String>,
     pub surrealdb_tenant_scope: String,
     /// Commercial guard mode for Phase 1 seams.
-    /// Supported values: `disabled`, `local_mock`, `local_dev`, `local_real`.
+    /// Supported values: `disabled`, `local_mock`, `local_real`.
     pub commercial_mode: String,
     /// Capability key checked before tenant-scoped counter writes when commercial mode is enabled.
     pub counter_paid_capability: String,
@@ -138,9 +138,71 @@ impl Config {
             .map_err(anyhow::Error::from)
     }
 
+    pub fn commercial_capability_state(
+        &self,
+    ) -> Result<CommercialCapabilityState, RuntimeGuardViolation> {
+        CommercialCapabilityState::parse(&self.commercial_mode)
+    }
+
+    pub fn implemented_commercial_mode(
+        &self,
+    ) -> Result<ImplementedCommercialMode, RuntimeGuardViolation> {
+        self.commercial_capability_state()?.implemented_mode()
+    }
+
     fn dev_secret() -> &'static str {
         "dev-secret-change-in-production"
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CommercialCapabilityState {
+    Disabled,
+    LocalMock,
+    LocalReal,
+    ExternalSingleNode,
+    ExternalDistributed,
+}
+
+impl CommercialCapabilityState {
+    fn parse(value: &str) -> Result<Self, RuntimeGuardViolation> {
+        match value {
+            value if value.eq_ignore_ascii_case("disabled") => Ok(Self::Disabled),
+            value if value.eq_ignore_ascii_case("local_mock") => Ok(Self::LocalMock),
+            value if value.eq_ignore_ascii_case("local_real") => Ok(Self::LocalReal),
+            value if value.eq_ignore_ascii_case("external_single_node") => {
+                Ok(Self::ExternalSingleNode)
+            }
+            value if value.eq_ignore_ascii_case("external_distributed") => {
+                Ok(Self::ExternalDistributed)
+            }
+            _ => Err(RuntimeGuardViolation::new(
+                "APP_COMMERCIAL_MODE",
+                "APP_COMMERCIAL_MODE must be one of disabled, local_mock, local_real, external_single_node, or external_distributed",
+            )),
+        }
+    }
+
+    fn implemented_mode(self) -> Result<ImplementedCommercialMode, RuntimeGuardViolation> {
+        match self {
+            Self::Disabled => Ok(ImplementedCommercialMode::Disabled),
+            Self::LocalMock => Ok(ImplementedCommercialMode::LocalMock),
+            Self::LocalReal => Ok(ImplementedCommercialMode::LocalReal),
+            Self::ExternalSingleNode | Self::ExternalDistributed => {
+                Err(RuntimeGuardViolation::new(
+                    "APP_COMMERCIAL_MODE",
+                    "APP_COMMERCIAL_MODE external states are canonical but not implemented by web-bff commercial composition yet",
+                ))
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ImplementedCommercialMode {
+    Disabled,
+    LocalMock,
+    LocalReal,
 }
 
 impl RuntimeSecurityPolicy for Config {
@@ -148,6 +210,7 @@ impl RuntimeSecurityPolicy for Config {
         &self,
         profile: RuntimeProfile,
     ) -> Result<(), RuntimeGuardViolation> {
+        let commercial_mode = self.implemented_commercial_mode()?;
         self.validate_billing_provider()?;
 
         if !profile.is_production() {
@@ -202,18 +265,17 @@ impl RuntimeSecurityPolicy for Config {
             }
         }
 
-        if self.commercial_mode.eq_ignore_ascii_case("local_mock")
-            || self.commercial_mode.eq_ignore_ascii_case("local_dev")
-        {
+        if commercial_mode == ImplementedCommercialMode::LocalMock {
             return Err(RuntimeGuardViolation::new(
                 "APP_COMMERCIAL_MODE",
-                "APP_COMMERCIAL_MODE=local_mock or local_dev is not allowed in production",
+                "APP_COMMERCIAL_MODE=local_mock is not allowed in production",
             ));
         }
 
-        if !self.commercial_mode.eq_ignore_ascii_case("disabled")
-            && !self.commercial_mode.eq_ignore_ascii_case("local_real")
-        {
+        if !matches!(
+            commercial_mode,
+            ImplementedCommercialMode::Disabled | ImplementedCommercialMode::LocalReal
+        ) {
             return Err(RuntimeGuardViolation::new(
                 "APP_COMMERCIAL_MODE",
                 "production commercial mode must use disabled or local_real",
@@ -221,7 +283,7 @@ impl RuntimeSecurityPolicy for Config {
         }
 
         if self.billing_provider.eq_ignore_ascii_case("creem") {
-            if !self.commercial_mode.eq_ignore_ascii_case("local_real") {
+            if commercial_mode != ImplementedCommercialMode::LocalReal {
                 return Err(RuntimeGuardViolation::new(
                     "APP_COMMERCIAL_MODE",
                     "production Creem billing requires APP_COMMERCIAL_MODE=local_real",
@@ -411,17 +473,31 @@ mod tests {
     }
 
     #[test]
-    fn production_rejects_local_dev_commercial_mode() {
+    fn rejects_local_dev_commercial_mode() {
         let config = Config {
             commercial_mode: "local_dev".to_string(),
-            ..production_ready_config()
+            ..Config::default()
         };
 
         let error = config
-            .validate_runtime_profile(RuntimeProfile::Production)
+            .validate_runtime_profile(RuntimeProfile::Development)
             .unwrap_err()
             .to_string();
         assert!(error.contains("APP_COMMERCIAL_MODE"));
+    }
+
+    #[test]
+    fn rejects_unimplemented_external_commercial_state() {
+        let config = Config {
+            commercial_mode: "external_single_node".to_string(),
+            ..Config::default()
+        };
+
+        let error = config
+            .validate_runtime_profile(RuntimeProfile::Development)
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("not implemented"));
     }
 
     #[test]

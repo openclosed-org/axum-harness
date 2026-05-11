@@ -14,7 +14,7 @@ adapters:
   - packages/adapters/storage/turso
   - packages/adapters/storage/sqlite
 
-local_dev:
+local_development:
   env_vars:
     TURSO_DATABASE_URL: "file:local.db"
     TURSO_AUTH_TOKEN: "dev-token"

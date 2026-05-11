@@ -120,9 +120,14 @@ async fn initialize_commercial_ledgers(
     config: &Config,
     db: Option<DatabaseBackend>,
 ) -> anyhow::Result<()> {
-    if config.commercial_mode.eq_ignore_ascii_case("disabled")
-        || config.commercial_mode.eq_ignore_ascii_case("local_mock")
-    {
+    let commercial_mode = config
+        .implemented_commercial_mode()
+        .map_err(anyhow::Error::from)?;
+    if matches!(
+        commercial_mode,
+        crate::config::ImplementedCommercialMode::Disabled
+            | crate::config::ImplementedCommercialMode::LocalMock
+    ) {
         return Ok(());
     }
 

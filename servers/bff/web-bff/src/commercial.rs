@@ -3,7 +3,7 @@
 //! Real provider adapters stay out of this module. The BFF only composes local
 //! ports, applies guards around use cases, and records usage after success.
 
-use crate::config::Config;
+use crate::config::{Config, ImplementedCommercialMode};
 use crate::error::BffError;
 use crate::state::DatabaseBackend;
 use ::commercial::{
@@ -101,24 +101,18 @@ pub struct CommercialReservation {
 
 impl CommercialStack {
     pub fn from_config(config: &Config, db: Option<DatabaseBackend>) -> anyhow::Result<Self> {
-        if config.commercial_mode.eq_ignore_ascii_case("disabled") {
+        let commercial_mode = config
+            .implemented_commercial_mode()
+            .map_err(anyhow::Error::from)?;
+        if commercial_mode == ImplementedCommercialMode::Disabled {
             return Ok(Self::disabled(&config.counter_paid_capability));
         }
 
-        if config.commercial_mode.eq_ignore_ascii_case("local_mock") {
+        if commercial_mode == ImplementedCommercialMode::LocalMock {
             return Ok(Self::local_mock(
                 &config.counter_paid_capability,
                 config.commercial_mock_allowed_capabilities.iter().cloned(),
             ));
-        }
-
-        if !config.commercial_mode.eq_ignore_ascii_case("local_dev")
-            && !config.commercial_mode.eq_ignore_ascii_case("local_real")
-        {
-            anyhow::bail!(
-                "unsupported APP_COMMERCIAL_MODE: {}",
-                config.commercial_mode
-            );
         }
 
         let backend = match db {
@@ -129,16 +123,10 @@ impl CommercialStack {
                 config.commercial_mode
             ),
         };
-        let fallback_allowed_capabilities =
-            if config.commercial_mode.eq_ignore_ascii_case("local_dev") {
-                config.commercial_mock_allowed_capabilities.to_vec()
-            } else {
-                Vec::new()
-            };
 
         Self::local_real(
             &config.counter_paid_capability,
-            fallback_allowed_capabilities,
+            Vec::<String>::new(),
             backend,
         )
     }

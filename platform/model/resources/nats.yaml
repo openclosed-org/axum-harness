@@ -11,7 +11,7 @@ version: "2.10"
 adapters:
   - packages/messaging/nats
 
-local_dev:
+local_development:
   compose_file: infra/local/compose/core.yaml
   port: 4222
   env_vars:

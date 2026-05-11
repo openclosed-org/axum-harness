@@ -12,7 +12,7 @@ adapters:
   - packages/adapters/telemetry/otel
   - packages/adapters/telemetry/tracing
 
-local_dev:
+local_development:
   compose_file: infra/local/compose/observability.yaml
   env_vars:
     OTEL_EXPORTER_OTLP_ENDPOINT: "http://localhost:4317"

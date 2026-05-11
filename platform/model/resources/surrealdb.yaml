@@ -13,7 +13,7 @@ version: "3.0.5"
 adapters:
   - packages/data-adapters/surrealdb
 
-local_dev:
+local_development:
   compose_file: infra/docker/compose/core.yaml
   profile: surrealdb
   env_vars:
