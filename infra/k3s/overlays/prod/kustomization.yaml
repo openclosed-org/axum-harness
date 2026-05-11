@@ -5,8 +5,7 @@ kind: Kustomization
 
 resources:
   - ../../base
-  - hpa-api.yaml
-  - hpa-web.yaml
+  - hpa-web-bff.yaml
 
 namespace: app
 
@@ -32,23 +31,6 @@ patches:
             cpu: "2"
             memory: 2Gi
 
-  - target:
-      kind: Deployment
-      name: web-server
-    patch: |
-      - op: replace
-        path: /spec/replicas
-        value: 2
-      - op: replace
-        path: /spec/template/spec/containers/0/resources
-        value:
-          requests:
-            cpu: 100m
-            memory: 128Mi
-          limits:
-            cpu: 500m
-            memory: 512Mi
-
   # ── Update ingress hosts for production ────────────────────
   - target:
       kind: Ingress
@@ -57,9 +39,3 @@ patches:
       - op: replace
         path: /spec/rules/0/host
         value: api.example.com
-      - op: replace
-        path: /spec/rules/1/host
-        value: app.example.com
-      - op: replace
-        path: /spec/rules/2/host
-        value: example.com

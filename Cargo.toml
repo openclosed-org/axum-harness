@@ -14,7 +14,7 @@ include = [
     "release-plz.toml",
     "release-plz.template.toml",
     "Justfile",
-    "justfiles/template.just",
+    "justfiles/agent/template.just",
     "README.md",
     "CONTRIBUTING.md",
     "CHANGELOG.md",
@@ -63,7 +63,6 @@ members = [
     "packages/observability/adapters/tracing",
     "packages/data-adapters/surrealdb",
     "packages/data-adapters/turso",
-    "packages/authn/adapters/google",
     "packages/authn/adapters/google-backend",
     "packages/authn/oidc-verifier",
     # AuthZ
@@ -107,7 +106,6 @@ members = [
     "platform/validators/observability-check",
     "platform/generators",
 ]
-exclude = ["apps/desktop/src-tauri"]
 resolver = "3"
 
 # ── Workspace Lints ──────────────────────────────────────────
@@ -164,7 +162,6 @@ adapter_telemetry_otel = { package = "adapter-telemetry-otel", path = "packages/
 adapter_telemetry_tracing = { package = "adapter-telemetry-tracing", path = "packages/observability/adapters/tracing", version = "0.1.0" }
 storage_surrealdb = { path = "packages/data-adapters/surrealdb", version = "0.1.0" }
 storage_turso = { path = "packages/data-adapters/turso", version = "0.1.0" }
-adapter-google = { path = "packages/authn/adapters/google", version = "0.1.0" }
 adapter-google-backend = { path = "packages/authn/adapters/google-backend", version = "0.1.0" }
 authn-oidc-verifier = { path = "packages/authn/oidc-verifier", version = "0.1.0" }
 authz = { path = "packages/authz", version = "0.1.0" }
@@ -186,19 +183,6 @@ user-service = { path = "services/user-service", version = "0.1.0" }
 auth-service = { path = "services/auth-service", version = "0.1.0" }
 event-bus = { path = "packages/messaging", version = "0.1.0" }
 web-bff = { path = "servers/bff/web-bff", version = "0.1.0" }
-
-# Tauri
-tauri = { version = "2.10.3", features = ["tray-icon"] }
-tauri-build = "2.5.6"
-tauri-plugin-shell = "2"
-tauri-plugin-dialog = "2"
-tauri-plugin-store = "2"
-tauri-plugin-opener = "2"
-tauri-plugin-fs = "2"
-tauri-plugin-deep-link = "2"
-tauri-plugin-window-state = "2"
-tauri-plugin-libsql = "0.1.0"
-tauri-plugin-log = { version = "2", features = ["colored"] }
 
 # Backend - Axum stack
 axum = { version = "0.8.9", features = ["json"] }
@@ -294,10 +278,6 @@ rcgen = "0.13"  # Self-signed cert generation for dev
 # ── Future Phase Dependencies ──────────────────────────────────
 # Phase 6 (Auth)
 # oauth2 = "5.0"  # Phase 6: Google OAuth flow
-
-# Phase 8 (Desktop)
-tauri-plugin-single-instance = "2"
-# tauri-plugin-updater = "2"  # Phase 9: Auto-update
 
 [profile.release]
 lto = true

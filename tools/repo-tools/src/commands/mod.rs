@@ -1,4 +1,3 @@
-pub(crate) mod apps;
 pub(crate) mod contracts;
 pub(crate) mod devx;
 pub(crate) mod doctor;

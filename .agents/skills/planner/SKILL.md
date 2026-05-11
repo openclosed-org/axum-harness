@@ -42,7 +42,7 @@ agent/manifests/gate-matrix.yml                             → path/risk/eviden
 ```
 User request
   → Parse intent and identify affected domains
-  → Determine whether task is docs/tooling/control-plane, backend, platform, contract, service, server, worker, or app-shell work
+  → Determine whether task is docs/tooling/control-plane, backend, platform, contract, service, server, worker, or external integration work
   → Route through the owner skill or escalate when ownership is unclear
   → Dispatch in dependency order
   → Converge outputs
@@ -66,7 +66,6 @@ User request
 
 | Directory | Owned By |
 |---|---|
-| `apps/**` | app-shell-agent |
 | `servers/**` | server-agent |
 | `services/**` | service-agent |
 | `workers/**` | worker-agent |

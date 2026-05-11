@@ -8,11 +8,9 @@ use xshell::{Shell, cmd};
 
 use crate::cli::{
     DevAgeKeyArgs, DevAgeKeyCommand, DevArgs, DevCommand, DevCreateMigrationArgs, DevMigrationArgs,
-    DevMigrationCommand, DevProcessArgs, DevProcessCommand, DevSkillsAddArgs,
-    DevSkillsAddSpecificArgs, DevSkillsArgs, DevSkillsCommand, DevSkillsFindArgs,
-    DevSkillsInitArgs, DevSkillsRemoveArgs, DevStopPortArgs, DevWorkerArgs, DevWorkerCommand,
-    DevWorkerRunArgs, DevWorkerStartArgs, GenSbomArgs, GenerateServiceArgs, ImageRefArgs,
-    K6BaselineArgs, RequireToolArgs, ScanVulnArgs,
+    DevMigrationCommand, DevProcessArgs, DevProcessCommand, DevStopPortArgs, DevWorkerArgs,
+    DevWorkerCommand, DevWorkerRunArgs, DevWorkerStartArgs, GenSbomArgs, GenerateServiceArgs,
+    ImageRefArgs, K6BaselineArgs, RequireToolArgs, ScanVulnArgs,
 };
 use crate::support;
 use crate::support::{
@@ -22,8 +20,6 @@ use crate::support::{
 };
 
 const AGE_KEY_RELATIVE_PATH: &str = ".config/sops/age/key.txt";
-const SKILLS_RUNNER: &str = "bunx";
-const SKILLS_CLI: &str = "skills";
 const DEFAULT_STOP_PATTERNS: &[&str] = &["cargo run -p web-bff", "web-bff", "moon run repo:dev"];
 const WORKER_STATE_DIR: &str = ".tmp/dev/workers";
 const WORKERS: &[WorkerSpec] = &[
@@ -40,7 +36,6 @@ pub(crate) fn run_dev(args: DevArgs) -> Result<()> {
         DevCommand::Process(args) => run_process(args),
         DevCommand::Migration(args) => run_migration(args),
         DevCommand::Worker(args) => run_worker(args),
-        DevCommand::Skills(args) => run_skills(args),
     }
 }
 
@@ -74,20 +69,6 @@ fn run_worker(args: DevWorkerArgs) -> Result<()> {
         DevWorkerCommand::Status => worker_status(),
         DevWorkerCommand::Health => worker_health(),
         DevWorkerCommand::Run(args) => run_single_worker(args),
-    }
-}
-
-fn run_skills(args: DevSkillsArgs) -> Result<()> {
-    match args.command {
-        DevSkillsCommand::List => skills_list(),
-        DevSkillsCommand::Find(args) => skills_find(args),
-        DevSkillsCommand::Check => skills_check(),
-        DevSkillsCommand::Add(args) => skills_add(args),
-        DevSkillsCommand::AddSpecific(args) => skills_add_specific(args),
-        DevSkillsCommand::Update => skills_update(),
-        DevSkillsCommand::Remove(args) => skills_remove(args),
-        DevSkillsCommand::Init(args) => skills_init(args),
-        DevSkillsCommand::Status => skills_status(),
     }
 }
 
@@ -489,80 +470,6 @@ fn worker_health() -> Result<()> {
             }
             Err(_) => println!("[UNREACHABLE]"),
         }
-    }
-    Ok(())
-}
-
-fn skills_list() -> Result<()> {
-    println!("=== Installed AI Skills ===");
-    run_skills_cli(&["list"])?;
-    println!();
-    println!("Add more skills: just skills-add <github-repo-or-url>");
-    Ok(())
-}
-
-fn skills_find(args: DevSkillsFindArgs) -> Result<()> {
-    let query = args.query.unwrap_or_default();
-    if query.trim().is_empty() {
-        run_skills_cli(&["find"])
-    } else {
-        run_skills_cli(&["find", query.trim()])
-    }
-}
-
-fn skills_check() -> Result<()> {
-    println!("=== Checking for Skill Updates ===");
-    run_skills_cli(&["check"])
-}
-
-fn skills_add(args: DevSkillsAddArgs) -> Result<()> {
-    println!("=== Adding Skill: {} ===", args.source);
-    run_skills_cli(&["add", &args.source])
-}
-
-fn skills_add_specific(args: DevSkillsAddSpecificArgs) -> Result<()> {
-    println!(
-        "=== Adding Specific Skill: {} from {} ===",
-        args.skill, args.source
-    );
-    run_skills_cli(&["add", &args.source, "-s", &args.skill])
-}
-
-fn skills_update() -> Result<()> {
-    println!("=== Updating All Skills ===");
-    run_skills_cli(&["update"])
-}
-
-fn skills_remove(args: DevSkillsRemoveArgs) -> Result<()> {
-    println!("=== Removing Skill: {} ===", args.skill);
-    run_skills_cli(&["remove", &args.skill])
-}
-
-fn skills_init(args: DevSkillsInitArgs) -> Result<()> {
-    println!("=== Creating Skill: {} ===", args.name);
-    run_skills_cli(&["init", &args.name])?;
-    println!();
-    println!(
-        "Edit the template at: .agents/skills/{}/SKILL.md",
-        args.name
-    );
-    Ok(())
-}
-
-fn skills_status() -> Result<()> {
-    println!("=== Skills Directory Structure ===");
-    println!();
-    run_skills_cli(&["list"])
-}
-
-fn run_skills_cli(args: &[&str]) -> Result<()> {
-    require_tool(SKILLS_RUNNER, "install Bun or add bunx to PATH")?;
-    let root = workspace_root()?;
-    let mut full_args = vec![SKILLS_CLI];
-    full_args.extend_from_slice(args);
-    let code = run_inherit(SKILLS_RUNNER, &full_args, Some(&root))?;
-    if code != 0 {
-        bail!("bunx skills failed with status {code}");
     }
     Ok(())
 }

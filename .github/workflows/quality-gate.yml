@@ -1,6 +1,6 @@
 name: Quality Gate (Secondary/Governance)
 
-# Backend/platform governance only. Desktop/Tauri checks are intentionally excluded from default CI.
+# Backend/platform governance only. Frontend repository checks are intentionally excluded from default CI.
 
 on:
   pull_request:
@@ -102,7 +102,6 @@ jobs:
           --exclude sdk-counter
           --exclude sdk-counter-embedded
           --exclude sdk-counter-http
-          --exclude adapter-google
           --exclude storage_surrealdb
           check advisories
 

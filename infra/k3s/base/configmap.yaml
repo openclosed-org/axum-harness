@@ -25,9 +25,5 @@ data:
   OTEL_SERVICE_NAME: "api-server"
   OTEL_EXPORTER_OTLP_ENDPOINT: "http://openobserve.observability:5080/api/default"
 
-  # ── Web Frontend Config ────────────────────────────────────
-  PUBLIC_API_BASE_URL: "https://api.example.com"
-
   # ── Gateway Config ─────────────────────────────────────────
   API_UPSTREAM: "api-server:3001"
-  WEB_UPSTREAM: "web-server:3002"

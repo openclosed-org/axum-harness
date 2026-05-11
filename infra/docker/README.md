@@ -9,14 +9,13 @@ First-party Rust deployables are binary-first by default: build on a developer m
 ```
 docker/
 ├── compose/
-│   ├── app.yaml              # Optional prebuilt application container shape, not the default VPS path
+│   ├── app.yaml              # Optional prebuilt backend application container shape, not the default VPS path
 │   ├── auth.yaml             # Local auth stack (Rauthy + OpenFGA)
 │   └── observability.yaml    # OpenObserve + OTel Collector + optional Vector logs profile
 ├── compose.dev.yml           # DEPRECATED — legacy Docker Compose
 ├── Dockerfile.api            # Axum API (distroless/static runtime)
-├── Dockerfile.web            # SvelteKit web (static-web-server, Rust)
-├── Dockerfile.gateway        # Pingora gateway + static-web-server
-└── docker-entrypoint-gateway.sh  # Container-only entrypoint (starts both processes)
+├── Dockerfile.gateway        # Pingora gateway
+└── docker-entrypoint-gateway.sh  # Container-only entrypoint
 ```
 
 ## Quick Start
@@ -55,7 +54,7 @@ just status-dev
 | Old | New | Reason |
 |-----|-----|--------|
 | Docker | Podman | Daemonless, rootless, systemd-integrated |
-| nginx | Pingora + static-web-server | Rust-native, better performance, type safety |
+| nginx | Pingora | Rust-native, better performance, type safety |
 | PostgreSQL | libSQL / Turso Cloud / optional SurrealDB | PostgreSQL is not the reference backend for this repository |
 | Redis | Moka / optional Valkey | In-process cache stays the default backend-core path; Valkey is local/cluster infrastructure when needed |
 | NATS server | in-process bus / optional NATS | Single-process flows can use in-process messaging; worker and cluster profiles can use NATS |

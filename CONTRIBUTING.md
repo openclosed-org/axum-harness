@@ -163,7 +163,7 @@ Do not:
 - claim semantic correctness from YAML or docs alone
 - turn future intent into current fact
 - change public contracts, event semantics, topology defaults, service ownership, or default runtime dependencies without prior discussion
-- make frontend, desktop, release, production, or platform-full gates mandatory for ordinary backend-core changes unless the risk justifies it
+- make external frontend, release, production, or platform-full gates mandatory for ordinary backend-core changes unless the risk justifies it
 
 Generated directories are read-only. Change the source and regenerate instead.
 
@@ -186,7 +186,6 @@ If a change crosses multiple domains, preserve the existing boundaries rather th
 - `services/**`: domain logic and service-local semantics
 - `servers/**`: sync protocol adaptation and entrypoints
 - `workers/**`: async execution, replay, checkpoint, recovery
-- `apps/**`: optional frontend shells, not the default backend entry
 - `docs/**`: durable guidance for template users, contributors, maintainers, operators, or architecture decisions
 
 ## Development Setup
@@ -197,7 +196,7 @@ just doctor
 just auth-up
 ```
 
-When working on optional app shells, install dependencies from the app-owned scope, for example `bun install --cwd apps/web` or `bun install --cwd apps/desktop/tests/e2e`.
+Frontend applications live in separate repositories and consume this backend through contracts such as OpenAPI or generated SDK artifacts.
 
 For local backend runs that need secrets, use SOPS-based injection:
 
@@ -228,7 +227,7 @@ cargo run -p repo-tools -- gate-guidance --list
 
 Heavier platform, replay, delivery, and release gates are selected by changed paths, risk, and evidence level. Do not run or require them for every ordinary backend-core change.
 
-Desktop/Tauri is not part of the default CI contract for this repository. If your change touches `apps/desktop/**` or desktop-specific runtime behavior, run the desktop commands explicitly on the target OS instead of assuming the backend CI lanes cover it.
+Frontend, desktop, mobile, and admin shells are out of repository scope. Validate those surfaces in their own repositories against this backend's published contracts.
 
 ## Pull Requests
 

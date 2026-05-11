@@ -23,11 +23,5 @@ platforms = [
     # "x86_64-pc-windows-msvc",
 ]
 
-# Exclude desktop/frontend crates that pull in tauri (requires GTK on Linux).
-# These are only needed for the desktop app, not backend CI.
-# Using traversal-excludes prevents them from influencing workspace-hack features.
-[traversal-excludes]
-workspace-members = ["adapter-google"]
-
 # Write out exact versions rather than a semver range. (Defaults to false.)
 # exact-versions = true

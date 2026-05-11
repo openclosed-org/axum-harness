@@ -79,9 +79,7 @@ Current implementation supports `backend-core` dry-run and apply. Other profiles
 6. `tools/repo-release/**`
 7. `.github/ISSUE_TEMPLATE/**`
 8. `.github/pull_request_template.md`
-9. `apps/**`
-10. `packages/ui/**`
-11. `verification/e2e/**`
+9. `verification/e2e/**`
 
 ### Review manually
 
@@ -110,7 +108,7 @@ The `backend-core` apply path also removes the upstream `axum-harness` release a
 
 ## Backend-core proof
 
-The backend-core profile is considered safe only when these commands pass without requiring `apps/**` or `packages/ui/**`:
+The backend-core profile is considered safe only when these commands pass without requiring a frontend repository:
 
 ```bash
 just audit-backend-core strict
@@ -119,7 +117,7 @@ just verify-contracts strict
 just verify
 ```
 
-Root cleanup is only complete when the backend-core contract no longer exposes root-level app-shell commands, app-specific Moon tasks, or app-aware type generation paths.
+Root cleanup is only complete when the backend-core contract no longer exposes root-level frontend commands, frontend-specific Moon tasks, or frontend-aware type generation paths.
 
 ## Why profiles exist
 

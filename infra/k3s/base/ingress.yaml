@@ -1,8 +1,6 @@
 # Ingress — Traefik routing rules
 # Routes:
 #   api.example.com/*  → web-bff:3010
-#   app.example.com/*  → web-server:80
-#   example.com/*      → web-server:80 (redirect from www)
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -25,28 +23,6 @@ spec:
             backend:
               service:
                 name: web-bff
-                port:
-                  name: http
-    # ── Web app routes ─────────────────────────────────────────
-    - host: app.example.com
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: web-server
-                port:
-                  name: http
-    # ── Root domain → web app ──────────────────────────────────
-    - host: example.com
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: web-server
                 port:
                   name: http
   # TLS is handled by Traefik + Let's Encrypt (configured in k3s)

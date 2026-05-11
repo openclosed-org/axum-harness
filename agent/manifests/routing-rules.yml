@@ -13,7 +13,6 @@ dispatch_order:
   - service-agent         # then domain services
   - server-agent          # then server endpoints
   - worker-agent          # then async workers (parallel with server)
-  - app-shell-agent       # then frontend apps
   - "(verify)"            # finally, total verification
 
 # Path → subagent mapping
@@ -24,7 +23,6 @@ rules:
     secondary:
       - server-agent       # if API types change
       - service-agent      # if event types change
-      - app-shell-agent    # if SDK types change
     condition: "always dispatch contract-agent first"
 
   # Platform model domain
@@ -45,22 +43,6 @@ rules:
 
   - match: "platform/validators/**"
     primary: platform-ops-agent
-
-  # App domain
-  - match: "apps/browser-extension/**"
-    primary: app-shell-agent
-
-  - match: "apps/web/**"
-    primary: app-shell-agent
-
-  - match: "apps/desktop/**"
-    primary: app-shell-agent
-
-  - match: "apps/mobile/**"
-    primary: app-shell-agent
-
-  - match: "packages/ui/**"
-    primary: app-shell-agent
 
   # Server domain
   - match: "servers/bff/**"
@@ -96,9 +78,6 @@ rules:
     primary: platform-ops-agent
 
   # Verification domain
-  - match: "verification/e2e/**"
-    primary: app-shell-agent
-
   - match: "verification/resilience/**"
     primary: worker-agent
 
@@ -138,9 +117,6 @@ rules:
   - match: "Cargo.toml"
     primary: planner
 
-  - match: "package.json"
-    primary: planner
-
   - match: "moon.yml"
     primary: planner
 
@@ -166,11 +142,6 @@ rules:
 # Parallel dispatch rules
 # These subagents can run in parallel when their paths are independent
 parallel_rules:
-  - condition: "apps/web/** AND apps/desktop/** only"
-    parallel:
-      - app-shell-agent      # web lane
-      - app-shell-agent      # desktop lane (same agent, different paths)
-
   - condition: "services/** only, no cross-service deps"
     parallel:
       - service-agent        # each service independently

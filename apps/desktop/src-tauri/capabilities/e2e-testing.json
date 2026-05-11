@@ -1,6 +1,0 @@
-{
-  "identifier": "e2e-testing",
-  "description": "E2E-only capabilities for desktop automation",
-  "windows": ["main"],
-  "permissions": ["playwright:default"]
-}

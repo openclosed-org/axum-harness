@@ -135,7 +135,6 @@ layers:
       - justfiles/**
       - moon.yml
       - Cargo.toml
-      - package.json
       - .github/**
     role: Root configuration, shared commands, and CI wiring.
 
@@ -175,12 +174,6 @@ layers:
     paths:
       - workers/**
     role: Async execution, outbox relay, projection, scheduling, replay, and recovery.
-
-  - name: apps
-    paths:
-      - apps/**
-      - packages/ui/**
-    role: Optional app shells and shared UI surfaces.
 
   - name: shared-packages
     paths:
@@ -276,7 +269,6 @@ write_boundaries:
       - docs/operations/**
     must_not_modify:
       - services/*/src/**
-      - apps/**
       - generated_readonly
 
   contract-agent:
@@ -297,7 +289,6 @@ write_boundaries:
     must_not_modify:
       - infra/**
       - platform/catalog/**
-      - apps/**
     note: Contract shape changes still start in packages/contracts/**.
 
   server-agent:
@@ -307,7 +298,6 @@ write_boundaries:
     must_not_modify:
       - services/*/src/domain/**
       - infra/**
-      - apps/**
 
   worker-agent:
     may_modify:
@@ -316,25 +306,9 @@ write_boundaries:
       - verification/topology/**
       - verification/replay/**
     must_not_modify:
-      - apps/**
       - infra/**
 
-  app-shell-agent:
-    may_modify:
-      - apps/**
-      - packages/ui/**
-      - verification/e2e/**
-    must_not_modify:
-      - services/**
-      - servers/**
-      - workers/**
-
 dependency_direction:
-  - from: apps/**
-    must_not_import:
-      - services/**
-      - workers/**
-    note: Apps consume SDKs, contracts, or HTTP APIs, not service libraries.
   - from: services/**
     must_not_import:
       - services/**
@@ -359,7 +333,6 @@ dependency_direction:
       - services/**
       - servers/**
       - workers/**
-      - apps/**
     note: Platform tooling validates and generates metadata; it does not depend on runtime business code.
 
 anti_patterns:
@@ -373,7 +346,7 @@ anti_patterns:
     description: Requiring gates only because a subagent touched a change, instead of using changed paths, risk, and evidence level.
     severity: error
   - id: all-gates-for-all-changes
-    description: Making ordinary development run release, production, frontend, desktop, or platform-full gates by default.
+    description: Making ordinary development run release, production, frontend-repository, or platform-full gates by default.
     severity: error
   - id: cross-service-import
     description: A service directly depends on another service instead of contracts, ports, events, commands, or workflows.

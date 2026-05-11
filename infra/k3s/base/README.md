@@ -13,7 +13,6 @@
 | `configmap-outbox-relay-worker.yaml` | outbox relay worker 配置 |
 | `configmap-projector-worker.yaml` | projector worker 配置 |
 | `deployment-web-bff.yaml` | `web-bff` 部署 |
-| `deployment-web.yaml` | web 静态站点部署 |
 | `deployment-outbox-relay-worker.yaml` | outbox relay worker 部署 |
 | `deployment-projector-worker.yaml` | projector worker 部署 |
 | `service.yaml` | ClusterIP services |

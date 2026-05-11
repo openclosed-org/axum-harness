@@ -16,7 +16,6 @@ Ownership skills define writable paths and responsibility boundaries.
 | `service-agent` | `services/**`, service-level `fixtures/**`, service-level `verification/**` |
 | `server-agent` | `servers/**`, protocol adaptation and server entrypoints |
 | `worker-agent` | `workers/**`, replay/resilience/topology verification lanes |
-| `app-shell-agent` | `apps/**`, `packages/ui/**`, `verification/e2e/**` |
 
 ## Workflow Skills
 

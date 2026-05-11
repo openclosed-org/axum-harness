@@ -3,9 +3,8 @@
 # This policy implements:
 #   1. Default deny all ingress/egress traffic within the namespace
 #   2. Allow ingress to api-server from ingress controller (Traefik)
-#   3. Allow ingress to web-server from ingress controller (Traefik)
-#   4. Allow api-server to egress to external services (DB, OIDC, etc.)
-#   5. Allow DNS resolution for all pods
+#   3. Allow api-server to egress to external services (DB, OIDC, etc.)
+#   4. Allow DNS resolution for all pods
 #
 # Apply: kubectl apply -f infra/security/policies/network-policy.yaml
 
@@ -77,31 +76,6 @@ spec:
       ports:
         - protocol: TCP
           port: 3001
-
----
-# ── Allow Traefik ingress to web-server ──────────────────────
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: allow-ingress-to-web
-  namespace: app
-spec:
-  podSelector:
-    matchLabels:
-      app.kubernetes.io/name: web-server
-  policyTypes:
-    - Ingress
-  ingress:
-    - from:
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: kube-system
-        - podSelector:
-            matchLabels:
-              app.kubernetes.io/name: traefik
-      ports:
-        - protocol: TCP
-          port: 80
 
 ---
 # ── Allow api-server egress to external services ─────────────

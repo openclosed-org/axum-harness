@@ -10,8 +10,6 @@ MISE_TASK_OUTPUT = "prefix"
 [tools]
 # ── 核心运行时（锁版本，影响编译产物）────────────────────
 rust = "1.95.0"
-node = "26.1"
-bun = "1.3.13"
 
 # ── 项目入口 / 编排（latest，行为稳定）────────────────────
 "aqua:moonrepo/moon" = "latest"
@@ -47,7 +45,7 @@ helm = "latest"
 # "npm:@redocly/cli" = "latest"        # API 文档 — 当前用 utoipa+scalar
 
 # ── mise tasks：仅工具管理，不执行项目逻辑 ─────────────────
-# 项目任务由 justfile 入口 → moon 编排 → cargo/bun 执行
+# 项目任务由 justfile 入口 → moon 编排 → cargo 执行
 
 [tasks.install]
 description = "Install all project tools"
@@ -59,4 +57,4 @@ run = "mise lock"
 
 [tasks.doctor]
 description = "Print critical toolchain versions"
-run = "bun run scripts/doctor.ts"
+run = "cargo run -p repo-tools -- doctor"

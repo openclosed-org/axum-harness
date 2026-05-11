@@ -221,6 +221,3 @@ tasks:
 
   audit-rust:
     command: 'cargo run -p repo-tools -- audit-rust'
-
-  audit-bun:
-    script: 'bun audit || true'

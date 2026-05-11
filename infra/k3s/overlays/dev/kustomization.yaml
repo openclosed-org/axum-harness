@@ -32,16 +32,6 @@ patches:
           cpu: "1"
           memory: 1Gi
 
-  - target:
-      kind: Deployment
-      name: web-server
-    patch: |
-      - op: replace
-        path: /spec/template/spec/containers/0/resources/limits
-        value:
-          cpu: "500m"
-          memory: 512Mi
-
   # ── Update ingress hosts for dev ───────────────────────────
   - target:
       kind: Ingress
@@ -50,9 +40,3 @@ patches:
       - op: replace
         path: /spec/rules/0/host
         value: api.dev.local
-      - op: replace
-        path: /spec/rules/1/host
-        value: app.dev.local
-      - op: replace
-        path: /spec/rules/2/host
-        value: dev.local

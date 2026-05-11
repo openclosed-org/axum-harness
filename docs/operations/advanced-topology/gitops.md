@@ -10,9 +10,8 @@
 
 1. `infra/gitops/flux/infrastructure/infrastructure.yaml`
 2. `infra/gitops/flux/apps/api.yaml`
-3. `infra/gitops/flux/apps/web.yaml`
-4. `infra/gitops/flux/apps/outbox-relay-worker.yaml`
-5. `infra/gitops/flux/apps/projector-worker.yaml`
+3. `infra/gitops/flux/apps/outbox-relay-worker.yaml`
+4. `infra/gitops/flux/apps/projector-worker.yaml`
 
 这些文件说明：
 
@@ -31,7 +30,6 @@
 1. `infra/gitops/flux/infrastructure/infrastructure.yaml`
 2. `infra/gitops/flux/infrastructure/*.yaml`
 3. `infra/gitops/flux/apps/api.yaml`
-4. `infra/gitops/flux/apps/web.yaml`
 
 按当前目录理解：
 
@@ -64,8 +62,8 @@
 
 通过现有 YAML 可以确认：
 
-1. `api.yaml` 与 `web.yaml` 都配置了 `decryption.provider: sops`。
-2. 二者都使用 `secretRef.name: sops-age`，说明 Flux 期望在集群中持有 age key secret。
+1. `api.yaml` 配置了 `decryption.provider: sops`。
+2. `api.yaml` 使用 `secretRef.name: sops-age`，说明 Flux 期望在集群中持有 age key secret。
 3. `infrastructure.yaml` 明确先于应用层落地基础依赖。
 4. `infra/k3s/overlays/dev/kustomization.yaml` 是当前 `web-bff` 主链的 dev overlay 入口。
 5. `infra/k3s/overlays/dev/outbox-relay-worker/kustomization.yaml` 是 `outbox-relay-worker` 的独立 dev overlay 入口。
@@ -79,7 +77,7 @@
 当前还不能声称：
 
 1. GitOps 路径已经把独立 `counter-service` deployable 提升为 checked/tested default path。
-2. `infra/gitops/flux/apps/api.yaml`、`infra/gitops/flux/apps/web.yaml` 中的所有 health checks、命名和 target resources 都已经与现状完全一致。
+2. `infra/gitops/flux/apps/api.yaml` 中的所有 health checks、命名和 target resources 都已经与现状完全一致。
 3. `outbox-relay-worker` 与 `projector-worker` 当前在 dev overlay 中都显式配置为 `replicas=1`；因此更需要先通过 `just sops-verify-counter-db-credentials dev` 和 `just verify-counter-delivery strict` 核实 external DB secret、overlay 和 Flux 路径没有漂移。
 4. promotion、rollback、drift handling 已经通过一条统一且经验证的流水线完成。
 5. K3s/K3d nodes 会或应该在集群内编译 first-party Rust code。
@@ -104,9 +102,8 @@
 6. `infra/k3s/overlays/dev/projector-worker/kustomization.yaml`
 7. `infra/gitops/flux/infrastructure/infrastructure.yaml`
 8. `infra/gitops/flux/apps/api.yaml`
-9. `infra/gitops/flux/apps/web.yaml`
-10. `infra/gitops/flux/apps/outbox-relay-worker.yaml`
-11. `infra/gitops/flux/apps/projector-worker.yaml`
+9. `infra/gitops/flux/apps/outbox-relay-worker.yaml`
+10. `infra/gitops/flux/apps/projector-worker.yaml`
 
 这样读的原因是：
 

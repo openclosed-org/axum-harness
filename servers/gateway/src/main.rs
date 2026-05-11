@@ -1,13 +1,11 @@
-//! Pingora-based reverse proxy — API + web routing.
+//! Pingora-based reverse proxy for backend API traffic.
 //!
 //! Routing rules:
 //!   - `/healthz`      → health check (200 OK, handled locally)
-//!   - `/api/*`        → web-bff upstream (3010)
-//!   - `/*`            → web static upstream (3002)
+//!   - `/*`            → web-bff upstream (3010)
 //!
 //! Environment variables:
 //!   API_UPSTREAM  — web-bff server address (default: 127.0.0.1:3010)
-//!   WEB_UPSTREAM  — Web static server address (default: 127.0.0.1:3002)
 //!   BIND          — Bind address (default: 0.0.0.0:3000)
 
 use std::sync::Arc;
@@ -29,7 +27,6 @@ use std::time::Instant;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct GatewayConfig {
     api_upstream: String,
-    web_upstream: String,
     bind: String,
 }
 
@@ -44,7 +41,6 @@ impl Default for GatewayConfig {
     fn default() -> Self {
         Self {
             api_upstream: "127.0.0.1:3010".to_string(),
-            web_upstream: "127.0.0.1:3002".to_string(),
             bind: "0.0.0.0:3000".to_string(),
         }
     }
@@ -54,7 +50,6 @@ impl Default for GatewayConfig {
 
 struct Gateway {
     api_upstreams: Arc<LoadBalancer<RoundRobin>>,
-    web_upstreams: Arc<LoadBalancer<RoundRobin>>,
     readiness_client: reqwest::Client,
     config: GatewayConfig,
 }
@@ -71,16 +66,6 @@ impl Gateway {
         let api_bg = background_service("api-health-check", api_upstreams);
         let api_upstreams = api_bg.task();
 
-        // Web upstream with health check
-        let mut web_upstreams =
-            LoadBalancer::<RoundRobin>::try_from_iter([config.web_upstream.as_str()])
-                .expect("valid web upstream address");
-        let web_hc = TcpHealthCheck::new();
-        web_upstreams.set_health_check(web_hc);
-        web_upstreams.health_check_frequency = Some(std::time::Duration::from_secs(5));
-        let web_bg = background_service("web-health-check", web_upstreams);
-        let web_upstreams = web_bg.task();
-
         let readiness_client = reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(2))
             .build()
@@ -88,7 +73,6 @@ impl Gateway {
 
         Self {
             api_upstreams,
-            web_upstreams,
             readiness_client,
             config: config.clone(),
         }
@@ -118,8 +102,7 @@ impl ProxyHttp for Gateway {
             let body_str = serde_json::json!({
                 "status": "ok",
                 "upstreams": {
-                    "api": "configured",
-                    "web": "configured"
+                    "api": "configured"
                 }
             })
             .to_string();
@@ -143,21 +126,12 @@ impl ProxyHttp for Gateway {
                 .send()
                 .await
                 .is_ok();
-            let web_ready = self
-                .readiness_client
-                .get(format!("http://{}/healthz", self.config.web_upstream))
-                .send()
-                .await
-                .is_ok();
-
-            let overall_ready = api_ready && web_ready;
-            let status_code = if overall_ready { 200 } else { 503 };
+            let status_code = if api_ready { 200 } else { 503 };
 
             let body_str = serde_json::json!({
-                "status": if overall_ready { "ready" } else { "not_ready" },
+                "status": if api_ready { "ready" } else { "not_ready" },
                 "upstreams": {
                     "api": if api_ready { "healthy" } else { "unhealthy" },
-                    "web": if web_ready { "healthy" } else { "unhealthy" },
                 }
             })
             .to_string();
@@ -182,15 +156,8 @@ impl ProxyHttp for Gateway {
         session: &mut Session,
         _ctx: &mut Self::CTX,
     ) -> Result<Box<HttpPeer>> {
-        let path = session.req_header().uri.path();
-
-        let (upstreams, sni) = if path.starts_with("/api/") || path == "/api" {
-            (&self.api_upstreams, "")
-        } else {
-            (&self.web_upstreams, "")
-        };
-
-        let backend = upstreams.select(b"", 256).unwrap();
+        let backend = self.api_upstreams.select(b"", 256).unwrap();
+        let sni = "";
         Ok(Box::new(HttpPeer::new(backend, false, sni.to_string())))
     }
 
@@ -248,7 +215,6 @@ fn main() -> anyhow::Result<()> {
 
     tracing::info!("Starting Pingora gateway on {}", bind_addr);
     tracing::info!("  API upstream (web-bff):    {}", config.api_upstream);
-    tracing::info!("  Web upstream:              {}", config.web_upstream);
 
     let mut server = Server::new(Some(Opt::parse_args()))?;
     server.bootstrap();

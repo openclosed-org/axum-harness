@@ -58,7 +58,6 @@ Individual service Cargo.toml and README.md
 | `infra/**` | Owned by platform-ops-agent |
 | `platform/model/**` | Platform-level model owned by platform-ops-agent |
 | `packages/**/adapters/**` | Concrete adapter implementations |
-| `apps/**` | Owned by app-shell-agent |
 | `servers/**` | Owned by server-agent |
 | `workers/**` | Owned by worker-agent |
 | Another service's directory | Services must not import each other |

@@ -65,7 +65,6 @@ platform/model/**                            → current platform model state
 | `packages/sdk/**` | Generated SDK (read-only) |
 | `services/*/src/**` | Service implementation owned by service-agent |
 | `services/*/model.yaml` | Service-local semantics owned by service-agent |
-| `apps/**` | Owned by app-shell-agent |
 | `servers/**` | Owned by server-agent |
 | `workers/**` | Owned by worker-agent |
 

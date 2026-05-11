@@ -1,20 +1,15 @@
 # Multi-stage Dockerfile for the Pingora Gateway
 #
-# This builds the Pingora reverse proxy and packages it with
-# a lightweight static file server (static-web-server) for
-# serving the SvelteKit build output.
+# This builds the Pingora reverse proxy for backend API traffic.
 #
 # Architecture:
-#   Port 3000: Pingora gateway (reverse proxy)
-#     /api/*  → api-server:3001
-#     /*      → static-web-server:3002
-#   Port 3002: static-web-server (serves SvelteKit build)
+#   Port 3000: Pingora gateway (reverse proxy to API upstream)
 #
 # Build:
 #   podman build -f infra/docker/Dockerfile.gateway -t gateway .
 #
 # Run:
-#   podman run -p 3000:3000 -p 3002:3002 gateway
+#   podman run -p 3000:3000 gateway
 
 # ── Stage 1: Build Pingora gateway ──────────────────────────
 FROM rust:1.94-slim AS builder
@@ -37,30 +32,7 @@ COPY servers/ ./servers/
 # Build the gateway
 RUN cargo build --release --package pingora-gateway
 
-# ── Stage 2: Install static-web-server ──────────────────────
-FROM ghcr.io/static-web-server/static-web-server:2 AS sws-builder
-
-# ── Stage 3: SvelteKit build ────────────────────────────────
-FROM oven/bun:1-alpine AS web-builder
-
-RUN apk add --no-cache git
-
-WORKDIR /app
-
-# Install dependencies
-COPY package.json bun-workspace.yaml bun.lockb* ./
-COPY apps/web/package.json ./apps/web/
-
-RUN bun install --frozen-lockfile 2>/dev/null || bun install
-
-# Copy source and build
-COPY apps/web/ ./apps/web/
-COPY packages/ ./packages/
-
-WORKDIR /app/apps/web
-RUN bun run build
-
-# ── Stage 4: Runtime (distroless) ──────────────────────────
+# ── Stage 2: Runtime (distroless) ──────────────────────────
 FROM gcr.io/distroless/static-debian12:nonroot AS runtime
 
 # Copy CA certificates
@@ -69,20 +41,13 @@ COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 # Copy Pingora gateway binary
 COPY --from=builder /app/target/release/pingora-gateway /usr/local/bin/pingora-gateway
 
-# Copy static-web-server binary
-COPY --from=sws-builder /static-web-server /usr/local/bin/static-web-server
-
-# Copy SvelteKit build output
-COPY --from=web-builder /app/apps/web/build /app/web-build
-
-# Entrypoint script that starts both processes
+# Entrypoint script that starts the gateway
 COPY infra/docker/docker-entrypoint-gateway.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
 EXPOSE 3000
 
 ENV API_UPSTREAM=127.0.0.1:3001
-ENV WEB_UPSTREAM=127.0.0.1:3002
 ENV BIND=0.0.0.0:3000
 
 ENTRYPOINT ["/entrypoint.sh"]

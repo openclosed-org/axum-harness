@@ -9,7 +9,7 @@
 | Topology Deployable | Flux App Config | Status |
 |--------------------|-----------------|--------|
 | `api-server` | `infra/gitops/flux/apps/api.yaml` | ✅ |
-| `web-bff` | `infra/gitops/flux/apps/web.yaml` | ✅ |
+| `web-bff` | `infra/gitops/flux/apps/api.yaml` | ✅ |
 | `edge-gateway` | `infra/gitops/flux/apps/gateway.yaml` | ✅ |
 | `outbox-relay-worker` | `infra/gitops/flux/apps/outbox-relay-worker.yaml` | ✅ Defined, overlay currently keeps replicas=1 and is gated by shared DB admission |
 | `indexer-worker` | *(pending)* | ⚠️ TODO |

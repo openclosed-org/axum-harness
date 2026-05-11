@@ -294,7 +294,7 @@ pub(crate) fn gate(args: GateArgs) -> Result<()> {
                 args: vec!["drift-check".into()],
             },
             GateCommand {
-                label: "backend-core app-shell audit",
+                label: "backend-only audit",
                 program: "just",
                 args: vec!["audit-backend-core".into(), "strict".into()],
             },
@@ -447,17 +447,6 @@ pub(crate) fn verify_handoff(args: VerifyHandoffArgs) -> Result<()> {
         "All {} modified files are within writable boundaries",
         valid.len()
     );
-
-    if args.agent == "app-shell-agent" {
-        println!("\nNo root-scoped verification is defined for app-shell-agent.");
-        println!(
-            "Validate retained app shells from their own local command surface if those directories remain in the repo."
-        );
-        println!("\n=== Handoff Verified ===");
-        println!("{} changes are ready for convergence.", args.agent);
-        println!("Next step: select gates by changed paths, risk, and evidence level.");
-        return Ok(());
-    }
 
     println!("\n--- Gate Selection Guidance ---");
     gate_guidance(GateGuidanceArgs {
@@ -669,9 +658,7 @@ pub(crate) fn validate_imports(mode: Mode) -> Result<()> {
         .unwrap_or_default();
 
     let mut issues = Vec::new();
-    for scope in [
-        "apps", "packages", "platform", "servers", "services", "workers",
-    ] {
+    for scope in ["packages", "platform", "servers", "services", "workers"] {
         let base = root.join(scope);
         if !base.exists() {
             continue;

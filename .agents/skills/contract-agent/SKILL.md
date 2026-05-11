@@ -56,7 +56,6 @@ docs/contracts/**                        → existing contract documentation
 | `docs/generated/**` | Generated (read-only) |
 | `services/**` | Owned by service-agent |
 | `servers/**` | Owned by server-agent |
-| `apps/**` | Owned by app-shell-agent |
 | `workers/**` | Owned by worker-agent |
 | `infra/**` | Owned by platform-ops-agent |
 | `packages/**/adapters/**` | Concrete adapter implementations |

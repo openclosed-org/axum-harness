@@ -137,13 +137,12 @@ Quick reference:
 | `services/**`                                                   | service-agent      |
 | `servers/**`                                                    | server-agent       |
 | `workers/**`                                                    | worker-agent       |
-| `apps/**`, `packages/ui/**`                                     | app-shell-agent    |
 | `tools/repo-tools/**`, `Justfile`, `justfiles/**`, `moon.yml`   | planner            |
 | `AGENTS.md`, `agent/**`, `.agents/**`, root config              | planner            |
 | `docs/architecture/**`, `docs/adr/**`, `docs/governance/**`     | planner            |
 
 Multi-domain dispatch order:
-platform-ops -> contract -> service -> server/worker -> app-shell -> verification.
+platform-ops -> contract -> service -> server/worker -> verification.
 
 ## 9. Gate Selection
 

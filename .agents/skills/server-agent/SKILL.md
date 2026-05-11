@@ -53,7 +53,6 @@ packages/contracts/**                    → shared protocol definitions
 |---|---|
 | `services/*/domain/**` | Core domain logic owned by service-agent |
 | `infra/**` | Owned by platform-ops-agent |
-| `apps/**` | Owned by app-shell-agent |
 | `workers/**` | Owned by worker-agent |
 | `packages/**/adapters/**` | Concrete adapter implementations |
 

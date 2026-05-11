@@ -27,20 +27,6 @@ patches:
             cpu: "1"
             memory: 1Gi
 
-  - target:
-      kind: Deployment
-      name: web-server
-    patch: |
-      - op: replace
-        path: /spec/template/spec/containers/0/resources
-        value:
-          requests:
-            cpu: 100m
-            memory: 128Mi
-          limits:
-            cpu: 500m
-            memory: 512Mi
-
   # ── Update ingress hosts for staging ───────────────────────
   - target:
       kind: Ingress
@@ -49,9 +35,3 @@ patches:
       - op: replace
         path: /spec/rules/0/host
         value: api.staging.example.com
-      - op: replace
-        path: /spec/rules/1/host
-        value: app.staging.example.com
-      - op: replace
-        path: /spec/rules/2/host
-        value: staging.example.com

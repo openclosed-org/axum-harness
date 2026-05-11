@@ -53,7 +53,6 @@ Individual worker Cargo.toml and README.md
 
 | Directory | Reason |
 |---|---|
-| `apps/**` | Owned by app-shell-agent |
 | `packages/sdk/**` | Generated from contracts (read-only) |
 | `infra/**` | Owned by platform-ops-agent |
 | `servers/**` | Owned by server-agent |

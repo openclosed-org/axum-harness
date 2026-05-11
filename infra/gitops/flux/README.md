@@ -10,7 +10,6 @@ Do not edit generated or rendered manifests to change behavior. Prefer `infra/k3
 infra/gitops/flux/
 ├── apps/                  # Application definitions
 │   ├── api.yaml           # API/BFF delivery wiring
-│   ├── web.yaml           # Web shell delivery wiring
 │   ├── gateway.yaml       # Edge gateway delivery wiring
 │   ├── outbox-relay-worker.yaml
 │   └── projector-worker.yaml

@@ -7,24 +7,21 @@
 # This file is not the recommended single-VPS deployment path. Runtime hosts
 # should not compile first-party Rust code. Prefer binary-first systemd
 # deployment, or use prebuilt images produced by a developer machine or CI.
-# Optional shell applications, if retained, should run from their own local command surface.
 #
 # Stack:
-#   - gateway:3000        — Pingora reverse proxy (entry point)
+#   - gateway:3000        — Pingora reverse proxy (API entry point)
 #   - web-bff:3010        — Web BFF server (distroless)
 #   - surrealdb:8000      — SurrealDB (dev sidecar, kv-mem)
-#   - web-static:3002     — static-web-server (SvelteKit SPA)
 #
 # NOT included (replaced by application-layer alternatives):
 #   - PostgreSQL → Turso (libSQL) / SurrealDB
 #   - Redis → Moka (in-process cache)
 #   - NATS server → in-process event bus (tokio broadcast, Phase 1)
-#   - nginx → Pingora + static-web-server (both Rust)
+#   - nginx → Pingora
 
 services:
   # ── Pingora Gateway (Reverse Proxy) ────────────────────────
-  # Single entry point for all HTTP traffic.
-# Routes /api/* → web-bff:3010, /* → web-static:3002
+  # Routes all HTTP traffic to web-bff:3010.
   gateway:
     build:
       context: ../../..
@@ -33,13 +30,10 @@ services:
       - "3000:3000"
     environment:
       - API_UPSTREAM=web-bff:3010
-      - WEB_UPSTREAM=web-static:3002
       - BIND=0.0.0.0:3000
     depends_on:
       web-bff:
         condition: service_healthy
-      web-static:
-        condition: service_started
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/healthz"]
       interval: 10s
@@ -61,36 +55,6 @@ services:
       - RUST_LOG=info,web-bff=debug
     volumes:
       - web-bff-data:/data
-  # ── Web Static Server (SvelteKit SPA) ──────────────────────
-  # Serves the SvelteKit build output with SPA fallback routing.
-  web-static:
-    build:
-      context: ../../..
-      dockerfile: infra/docker/Dockerfile.web
-    expose:
-      - "3002"
-    environment:
-      - PORT=3002
-    command:
-      - "--host"
-      - "0.0.0.0"
-      - "--port"
-      - "3002"
-      - "--root"
-      - "/app/web-build"
-      - "--page-fallback"
-      - "/app/web-build/index.html"
-      - "--compression"
-      - "--security-headers"
-      - "--log-level"
-      - "warn"
-    healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3002/healthz"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-      start_period: 5s
-
   # ── SurrealDB (dev sidecar) ────────────────────────────────
   # Phase 1: in-memory (kv-mem) for local dev
   # Phase 2: switch to persistent storage (tikv/rocksdb backend)

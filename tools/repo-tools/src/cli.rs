@@ -61,7 +61,6 @@ enum Commands {
     PlatformCapabilities,
     CleanSdk,
     Dev(DevArgs),
-    Apps(AppsArgs),
     Secrets(SecretsArgs),
     Infra(InfraArgs),
     Ops(OpsArgs),
@@ -139,7 +138,6 @@ pub(crate) struct VerifyHandoffArgs {
 #[derive(Copy, Clone, Debug, Eq, PartialEq, ValueEnum)]
 pub(crate) enum TemplateProfile {
     BackendCore,
-    BackendDesktop,
     FullResearch,
 }
 
@@ -147,7 +145,6 @@ impl TemplateProfile {
     pub(crate) fn label(self) -> &'static str {
         match self {
             Self::BackendCore => "backend-core",
-            Self::BackendDesktop => "backend-desktop",
             Self::FullResearch => "full-research",
         }
     }
@@ -247,7 +244,6 @@ pub(crate) enum DevCommand {
     Process(DevProcessArgs),
     Migration(DevMigrationArgs),
     Worker(DevWorkerArgs),
-    Skills(DevSkillsArgs),
 }
 
 #[derive(Args)]
@@ -328,51 +324,6 @@ pub(crate) struct DevWorkerStartArgs {
 #[derive(Args)]
 pub(crate) struct DevWorkerRunArgs {
     pub(crate) worker: String,
-}
-
-#[derive(Args)]
-pub(crate) struct DevSkillsArgs {
-    #[command(subcommand)]
-    pub(crate) command: DevSkillsCommand,
-}
-
-#[derive(Subcommand)]
-pub(crate) enum DevSkillsCommand {
-    List,
-    Find(DevSkillsFindArgs),
-    Check,
-    Add(DevSkillsAddArgs),
-    AddSpecific(DevSkillsAddSpecificArgs),
-    Update,
-    Remove(DevSkillsRemoveArgs),
-    Init(DevSkillsInitArgs),
-    Status,
-}
-
-#[derive(Args)]
-pub(crate) struct DevSkillsFindArgs {
-    pub(crate) query: Option<String>,
-}
-
-#[derive(Args)]
-pub(crate) struct DevSkillsAddArgs {
-    pub(crate) source: String,
-}
-
-#[derive(Args)]
-pub(crate) struct DevSkillsAddSpecificArgs {
-    pub(crate) source: String,
-    pub(crate) skill: String,
-}
-
-#[derive(Args)]
-pub(crate) struct DevSkillsRemoveArgs {
-    pub(crate) skill: String,
-}
-
-#[derive(Args)]
-pub(crate) struct DevSkillsInitArgs {
-    pub(crate) name: String,
 }
 
 #[derive(Args)]
@@ -783,43 +734,6 @@ pub(crate) struct OpsBootstrapVpsArgs {
     pub(crate) confirm: Option<String>,
 }
 
-#[derive(Args)]
-pub(crate) struct AppsArgs {
-    #[command(subcommand)]
-    pub(crate) command: AppsCommand,
-}
-
-#[derive(Subcommand)]
-pub(crate) enum AppsCommand {
-    E2e(AppsE2eArgs),
-    DevDesktop(AppsDevDesktopArgs),
-    BoundaryAudit(AppsBoundaryAuditArgs),
-}
-
-#[derive(Args)]
-pub(crate) struct AppsBoundaryAuditArgs {
-    #[arg(value_enum, default_value = "dry-run")]
-    pub(crate) mode: BackendCoreAuditMode,
-}
-
-#[derive(Args)]
-pub(crate) struct AppsE2eArgs {
-    #[command(subcommand)]
-    pub(crate) command: AppsE2eCommand,
-}
-
-#[derive(Subcommand)]
-pub(crate) enum AppsE2eCommand {
-    Preflight,
-    Run,
-}
-
-#[derive(Args)]
-pub(crate) struct AppsDevDesktopArgs {
-    #[arg(long)]
-    pub(crate) dry_run: bool,
-}
-
 pub(crate) fn run() -> Result<()> {
     let cli = Cli::parse();
     match cli.command {
@@ -884,7 +798,6 @@ pub(crate) fn run() -> Result<()> {
         }
         Commands::CleanSdk => commands::platform::clean_sdk(),
         Commands::Dev(args) => commands::devx::run_dev(args),
-        Commands::Apps(args) => commands::apps::run(args),
         Commands::Secrets(args) => commands::secrets::run(args),
         Commands::Infra(args) => commands::infra::run(args),
         Commands::Ops(args) => commands::ops::run(args),
