@@ -9,7 +9,9 @@
 #   just sops-show-age-key         # Show public key
 #   just sops-encrypt-dev <name>   # Encrypt secrets for dev
 #   just sops-edit <name> <env>    # Edit encrypted secrets
-#   just sops-run <name>           # Run binary with decrypted env vars
+#   just sops-run <name>           # Run binary with db-state=local_real
+#   just sops-run <name> dev 'cargo run -p web-bff' external_single_node
+#                                  # Run with counter-db-credentials merged explicitly
 #   just sops-export-env <name>    # Write transient env-file for systemd/podman
 #   just sops-reconcile <env>      # Apply secrets to cluster
 
@@ -41,11 +43,15 @@ sops-edit deployable='web-bff' env='dev':
 
 # ── Local Development (No Cluster) ──────────────────────────
 
-# Run binary with SOPS-decrypted environment variables
+# Run binary with SOPS-decrypted environment variables.
+# db-state local_real intentionally skips counter-db-credentials so local tests do
+# not silently switch from embedded file DB to remote Turso. Use
+# external_single_node or external_distributed explicitly when testing that DB
+# capability state.
 # This is the ONLY allowed non-cluster dev path
 # Does NOT create .env files
-sops-run deployable='web-bff' env='dev' cmd='':
-    @cargo run -p repo-tools -- secrets run --deployable "{{deployable}}" --env "{{env}}" -- {{cmd}}
+sops-run deployable='web-bff' env='dev' cmd='' db_state='local_real':
+    @cargo run -p repo-tools -- secrets run --deployable "{{deployable}}" --env "{{env}}" --db-state "{{db_state}}" -- {{cmd}}
 
 # Export SOPS-decrypted variables to a transient host env-file for systemd or Podman.
 # The output is created with 0600 permissions and must not be committed.
@@ -70,6 +76,6 @@ sops-setup-flux-secret:
 sops-validate:
     @cargo run -p repo-tools -- secrets validate
 
-# Verify that shared counter DB secret is ready for independent worker pods
-sops-verify-counter-shared-db env='dev':
-    @cargo run -p repo-tools -- secrets verify-counter-shared-db --env "{{env}}"
+# Verify that counter DB credentials are ready for independent worker pods
+sops-verify-counter-db-credentials env='dev':
+    @cargo run -p repo-tools -- secrets verify-counter-db-credentials --env "{{env}}"

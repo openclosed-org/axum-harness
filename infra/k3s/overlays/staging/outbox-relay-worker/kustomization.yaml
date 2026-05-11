@@ -28,7 +28,7 @@ patches:
           name: OUTBOX_DATABASE_URL
           valueFrom:
             secretKeyRef:
-              name: counter-shared-db-staging
+              name: counter-db-credentials-staging
               key: OUTBOX_DATABASE_URL
       - op: add
         path: /spec/template/spec/containers/0/env/-
@@ -36,5 +36,5 @@ patches:
           name: OUTBOX_TURSO_AUTH_TOKEN
           valueFrom:
             secretKeyRef:
-              name: counter-shared-db-staging
+              name: counter-db-credentials-staging
               key: OUTBOX_TURSO_AUTH_TOKEN

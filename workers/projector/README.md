@@ -49,4 +49,4 @@ just validate-resilience strict
 2. 不要把 read model 当成 authoritative business state。
 3. 不要跳过 replay/rebuild 约束，只保留“实时消费”这一半能力。
 4. 不要把 queue group 误写成 durable consumer；当前可重建能力仍主要来自 outbox replay。
-5. 不要在 shared libSQL/Turso secret 仍指向本地 `file:` 路径，或 `just sops-verify-counter-shared-db dev` / `just verify-counter-delivery strict` 仍未通过时，继续依赖 dev overlay 中已启用的 `projector-worker` 作为有效 projection 交付链路。
+5. 不要在 `counter-db-credentials` 仍指向本地 `file:` 路径，或 `just sops-verify-counter-db-credentials dev` / `just verify-counter-delivery strict` 仍未通过时，继续依赖 dev overlay 中已启用的 `projector-worker` 作为有效 projection 交付链路。

@@ -8,8 +8,11 @@
 # transient host env-files, or SOPS/Kustomize/Flux. They are NOT sourced from
 # committed .env files.
 #
-# Quick inner loop (local dev, no cluster):
-#   just sops-run web-bff dev 'cargo run -p web-bff'
+# Quick inner loop (local dev, no cluster, database=local_real):
+#   just sops-run web-bff dev 'cargo run -p web-bff' local_real
+#
+# Remote/shared database capability states must be selected explicitly:
+#   just sops-run web-bff dev 'cargo run -p web-bff' external_single_node
 #
 # Single-VPS binary or Podman host injection:
 #   just sops-export-env web-bff dev systemd-binary /run/axum-harness/web-bff.env

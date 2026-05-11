@@ -1,0 +1,4 @@
+# Placeholder kustomization for the external DB credentials secret.
+# The concrete Secret is applied by `repo-tools secrets reconcile --env dev`.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization

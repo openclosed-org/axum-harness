@@ -1,0 +1,47 @@
+# Web BFF — Dev Secrets Example
+#
+# Copy this file to web-bff.yaml in the same directory, replace placeholders
+# locally, then run `just sops-encrypt-dev web-bff`. The copied plaintext file
+# is intentionally ignored by git. Real values belong only in encrypted SOPS
+# files or transient runtime env-files.
+apiVersion: v1
+kind: Secret
+metadata:
+    name: web-bff-secrets
+    namespace: app
+    labels:
+        app.kubernetes.io/name: web-bff
+        app.kubernetes.io/env: dev
+type: Opaque
+stringData:
+    # ── Server ─────────────────────────────────────────────────
+    APP_SERVER_HOST: "0.0.0.0"
+    APP_SERVER_PORT: "3010"
+    APP_ENVIRONMENT: "development"
+
+    # ── Auth ───────────────────────────────────────────────────
+    APP_AUTH_MODE: "dev_headers"
+    APP_JWT_SECRET: "REPLACE_WITH_DEV_JWT_SECRET"
+
+    # ── CORS ───────────────────────────────────────────────────
+    APP_CORS_ALLOWED_ORIGINS: "http://localhost:5173,http://localhost:3000"
+
+    # ── Database (embedded fallback for local `just sops-run`) ─
+    APP_DATABASE_URL: "file:/data/web-bff.db"
+
+    # ── Commercial / Billing Local Development ─────────────────
+    APP_COMMERCIAL_MODE: "local_real"
+    APP_BILLING_PROVIDER: "creem"
+    APP_CREEM_ENV: "test"
+    APP_CREEM_API_KEY: "REPLACE_WITH_CREEM_TEST_API_KEY"
+    APP_CREEM_WEBHOOK_SECRET: "REPLACE_WITH_CREEM_TEST_WEBHOOK_SECRET"
+    APP_CREEM_PRODUCT_COUNTER_PRO: "REPLACE_WITH_CREEM_TEST_PRODUCT_ID"
+    APP_PUBLIC_BASE_URL: "REPLACE_WITH_PUBLIC_TUNNEL_BASE_URL"
+
+    # ── Turso Remote ───────────────────────────────────────────
+    # Keep these out of web-bff.yaml for ordinary local_real runs.
+    # Use counter-db-credentials.yaml plus
+    # `just sops-run ... external_single_node` when that DB capability state is
+    # the behavior under test.
+    # APP_TURSO_URL: ""
+    # APP_TURSO_AUTH_TOKEN: ""

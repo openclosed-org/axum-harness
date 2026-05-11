@@ -8,12 +8,13 @@
 
 当前后端 canonical secret contract 是 SOPS/age-backed deployable environment shape：
 
-1. 明文模板放在 `infra/security/sops/templates/<env>/`
-2. 加密产物放在 `infra/security/sops/<env>/*.enc.yaml`
-3. 加密规则由根目录 `.sops.yaml` 统一定义
-4. 本地非集群运行时，可通过 `just sops-run` 将解密后的环境变量注入进程
-5. 单 VPS `systemd-binary` 或 `podman` profile 可通过 `just sops-export-env` 在宿主机生成临时 `0600` env-file
-6. 集群路径通过 Kustomize/Flux 消费加密 secrets，而不是依赖 `.env`
+1. 可提交的 secret shape example 放在 `infra/security/sops/templates/<env>/*.example.yaml`
+2. 本机明文 secret 输入放在同目录 `*.yaml`，但必须被 git 忽略
+3. 加密产物放在 `infra/security/sops/<env>/*.enc.yaml`
+4. 加密规则由根目录 `.sops.yaml` 统一定义
+5. 本地非集群运行时，可通过 `just sops-run` 将解密后的环境变量注入进程
+6. 单 VPS `systemd-binary` 或 `podman` profile 可通过 `just sops-export-env` 在宿主机生成临时 `0600` env-file
+7. 集群路径通过 Kustomize/Flux 消费加密 secrets，而不是依赖 `.env`
 
 这条路径是 `counter-service` 工程横切链的一部分，不是旁路能力。短本地调试可以使用显式 `APP_*` exports，但不能把 `.env` 或导出的临时 env-file 提交为后端参考配置源。
 
@@ -28,7 +29,7 @@
 
 当前已确认的事实：
 
-1. `.sops.yaml` 已定义 `templates/`、`dev/`、`staging/`、`prod/` 的创建规则。
+1. `.sops.yaml` 已定义本机 plaintext secret 输入、`dev/`、`staging/`、`prod/` 的创建规则。
 2. `justfiles/sops.just` 已把仓库 secret shape 写成 `SOPS + age`，并明确说明后端参考路径不来自 `.env`。
 3. 当前建议的命令入口是 `just sops-gen-age-key`、`just sops-edit`、`just sops-encrypt-dev`、`just sops-run`、`just sops-export-env`、`just sops-reconcile`。
 
@@ -36,19 +37,16 @@
 
 主要文件：
 
-1. `infra/security/sops/templates/dev/web-bff.yaml`
-2. `infra/security/sops/templates/dev/outbox-relay-worker.yaml`
-3. `infra/security/sops/templates/dev/projector-worker.yaml`
-4. `infra/security/sops/templates/dev/counter-shared-db.yaml`
-5. `infra/security/sops/templates/dev/counter-service.yaml`
-6. `infra/security/sops/templates/dev/surrealdb.yaml`
+1. `infra/security/sops/templates/dev/web-bff.example.yaml`
+2. `infra/security/sops/templates/dev/counter-db-credentials.example.yaml`
+3. 本机可从 example 复制出 ignored plaintext `*.yaml` 后再加密
 
 对应的加密产物当前也已存在：
 
 1. `infra/security/sops/dev/web-bff.enc.yaml`
 2. `infra/security/sops/dev/outbox-relay-worker.enc.yaml`
 3. `infra/security/sops/dev/projector-worker.enc.yaml`
-4. `infra/security/sops/dev/counter-shared-db.enc.yaml`
+4. `infra/security/sops/dev/counter-db-credentials.enc.yaml`
 5. `infra/security/sops/dev/counter-service.enc.yaml`
 6. `infra/security/sops/dev/surrealdb.enc.yaml`
 
@@ -56,8 +54,8 @@
 
 1. `web-bff` secrets 对应当前 counter 的同步主路径。
 2. `outbox-relay-worker` secrets 对应当前异步 relay 主路径。
-3. `projector-worker` secrets 已有 dev 模板与加密产物，当前 overlay 已显式配置 `replicas=1`，因此 shared secret 的校验必须前置到 admission。
-4. `counter-shared-db` secrets 用来把 `web-bff`、`outbox-relay-worker`、`projector-worker` 指向同一份远程 libSQL/Turso 数据源。
+3. `projector-worker` secrets 已有 dev 模板与加密产物，当前 overlay 已显式配置 `replicas=1`，因此 counter DB credentials 校验必须前置到 admission。
+4. `counter-db-credentials` 是 database capability `external_single_node` 或 `external_distributed` 的 secret source，用来把 `web-bff`、`outbox-relay-worker`、`projector-worker` 指向同一份远程 libSQL/Turso 数据源。
 5. `counter-service` secrets 已有模板和加密产物，但模板本身已明确说明它主要为 Phase 1+ 独立 deployable 预留。
 6. `surrealdb` secrets 支撑可选 SurrealDB provider lane 和 K3d/compose runtime profile，不是默认 backend-core 的必需前置。
 
@@ -111,9 +109,10 @@ just sops-encrypt-dev web-bff
 
 当前更符合仓库结构的做法是：
 
-1. 修改 `infra/security/sops/templates/<env>/<deployable>.yaml`
-2. 重新加密生成 `infra/security/sops/<env>/<deployable>.enc.yaml`
-3. 提交加密产物，而不是提交明文模板变体或 `.env`
+1. 从 `infra/security/sops/templates/<env>/<deployable>.example.yaml` 复制出本机 ignored plaintext `infra/security/sops/templates/<env>/<deployable>.yaml`
+2. 在本机 plaintext 文件中填入真实值
+3. 重新加密生成 `infra/security/sops/<env>/<deployable>.enc.yaml`
+4. 提交加密产物和 sanitized `.example.yaml` shape，不提交明文 secret 或 `.env`
 
 ### 3.3 本地非集群运行
 
@@ -123,28 +122,41 @@ just sops-encrypt-dev web-bff
 just sops-run web-bff dev
 just sops-run outbox-relay-worker dev 'cargo run -p outbox-relay-worker'
 just sops-run projector-worker dev 'cargo run -p projector-worker'
-just sops-verify-counter-shared-db dev
+just sops-verify-counter-db-credentials dev
 ```
 
 这条路径的意义是：
 
 1. 让本地进程消费和集群一致的环境变量形状。
 2. 避免为了开发临时制造新的 `.env` 主路径。
-3. 在继续依赖当前已启用的独立 worker overlay 前，先验证 shared remote DB secret 不再指向本地 `file:` 路径。
+3. `sops-run` 默认数据库能力状态是 `local_real`，即本地 durable embedded libSQL/SQLite，不合并 `counter-db-credentials`。
+4. 需要 external DB 时必须显式选择 `external_single_node` 或 `external_distributed`。
+5. 在继续依赖当前已启用的独立 worker overlay 前，先验证 external DB secret 不再指向本地 `file:` 路径。
+
+数据库能力状态必须使用统一五态词汇：
+
+| state | 当前 `sops-run` 语义 |
+|---|---|
+| `disabled` | 不支持；当前 backend reference chain 需要 durable DB，命令会拒绝。 |
+| `local_mock` | 不支持；DB lane 不提供 mock fallback，命令会拒绝。 |
+| `local_real` | 默认；只注入 deployable secret，使用本地 durable embedded DB 配置。 |
+| `external_single_node` | 显式合并 `counter-db-credentials.enc.yaml`，用于 Turso/libSQL remote 或单节点外部 DB。 |
+| `external_distributed` | 显式合并 `counter-db-credentials.enc.yaml`，用于集群/托管分布式 DB 语义。 |
 
 推荐的快速验证链：
 
 ```bash
 just sops-validate
-just sops-verify-counter-shared-db dev
+just sops-verify-counter-db-credentials dev
 cargo run -p repo-tools -- secrets decrypt-env infra/security/sops/dev/web-bff.enc.yaml
-just sops-run web-bff dev
+just sops-run web-bff dev 'cargo run -p web-bff' local_real
+just sops-run web-bff dev 'cargo run -p web-bff' external_single_node
 ```
 
 其中：
 
 1. `just sops-validate` 验证 key 与 `.sops.yaml`、以及样例解密是否真实可用。
-2. `just sops-verify-counter-shared-db dev` 验证 shared DB secret 是否仍残留模板占位符，是否错误指向本地 `file:` URL。
+2. `just sops-verify-counter-db-credentials dev` 验证 external DB secret 是否仍残留模板占位符，是否错误指向本地 `file:` URL。
 3. `repo-tools secrets decrypt-env` 可直接观察当前会注入哪些环境变量。
 4. `just sops-run` 则是最终运行态验证。
 
@@ -166,7 +178,7 @@ just sops-export-env web-bff dev podman /run/axum-harness/web-bff.env
 
 当前已检查的行为：
 
-1. 导出命令会合并 `<deployable>.enc.yaml` 与 `counter-shared-db.enc.yaml`。
+1. 导出命令面向单 VPS external DB capability state，会合并 `<deployable>.enc.yaml` 与 `counter-db-credentials.enc.yaml`。
 2. 输出文件以 `0600` 权限写入。
 3. 缺失 deployable 专属 secret 时会失败，避免只拿 shared DB secret 误启动未知服务。
 4. 输出路径应位于 `/run/...`、`/var/run/...`、受控 secret 目录，或本地测试用 `.run/...`；不要提交。
@@ -202,8 +214,8 @@ secrets 文档不能脱离部署链路单独理解。当前真实挂接关系是
 1. `infra/k3s/overlays/dev/kustomization.yaml` 已引用：
    - `web-bff.enc.yaml`
    - `outbox-relay-worker.enc.yaml`
-   - `shared-counter-db/kustomization.yaml`
-2. `infra/k3s/overlays/dev/projector-worker/kustomization.yaml` 与 `infra/k3s/overlays/dev/outbox-relay-worker/kustomization.yaml` 都已显式挂接 `counter-shared-db` secret，并在当前清单中将副本数显式配置为 1。
+   - `counter-db-credentials/kustomization.yaml`
+2. `infra/k3s/overlays/dev/projector-worker/kustomization.yaml` 与 `infra/k3s/overlays/dev/outbox-relay-worker/kustomization.yaml` 都已显式挂接 `counter-db-credentials` secret，并在当前清单中将副本数显式配置为 1。
 3. 同文件中 `counter-service.enc.yaml` 当前仍被注释，注释明确说明其对应未来独立 deployable 阶段。
 4. `infra/gitops/flux/apps/*.yaml` 已声明通过 `decryption.provider: sops` 和 `secretRef.name: sops-age` 解密。
 5. 本地 K3d smoke 不走 Flux；它通过 `just sops-reconcile dev` 直接 apply SOPS 解密后的 Secret，并创建 `app` 与 `app-dev` namespace。
@@ -232,4 +244,4 @@ secrets 文档不能脱离部署链路单独理解。当前真实挂接关系是
 
 ## 6. 一句话结论
 
-当前后端 canonical secret shape 已经是 `templates -> enc.yaml -> sops-run / sops-export-env / Kustomize-Flux`，而 `counter-service` 已经挂在这条轨道上，只是其独立 deployable 路径仍未成为默认主运行形态。
+当前后端 canonical secret shape 已经是 `*.example.yaml -> ignored local *.yaml -> enc.yaml -> sops-run / sops-export-env / Kustomize-Flux`。DB/storage lane 必须用 `disabled|local_mock|local_real|external_single_node|external_distributed` 表达状态，不能用 `shared-db` 这类实现昵称替代 capability state。

@@ -100,15 +100,27 @@ This is the K3s/GitOps delivery direction, not the local K3d smoke entrypoint.
 
 ```bash
 # repo-tools secrets run 风格 — 不产生 .env 文件
-just sops-run web-bff
+just sops-run web-bff dev 'cargo run -p web-bff' local_real
 
-just sops-run outbox-relay-worker
-just sops-run projector-worker
-just sops-run counter-shared-db  # 仅用于检查 secret 形状，不直接启动二进制
-just sops-run counter-service
+just sops-run outbox-relay-worker dev 'cargo run -p outbox-relay-worker' local_real
+just sops-run projector-worker dev 'cargo run -p projector-worker' local_real
+just sops-verify-counter-db-credentials dev  # 仅验证 external DB credentials secret 形状，不直接启动二进制
+just sops-run counter-service dev 'cargo run -p counter-service' local_real
 ```
 
 **这是 cluster path 的派生辅助命令，不是新的配置声明入口。**
+
+`sops-run` 的最后一个参数是数据库 capability state，不是 secret 文件昵称或拓扑别名。统一词汇是 `disabled|local_mock|local_real|external_single_node|external_distributed`：
+
+| state | 当前含义 |
+|---|---|
+| `disabled` | 当前 backend reference chain 不支持；需要 durable DB。 |
+| `local_mock` | 当前 DB/storage lane 不支持；不能用 mock DB 伪造持久化语义。 |
+| `local_real` | 默认；使用 deployable secret 中的本地 durable embedded DB 配置。 |
+| `external_single_node` | 合并 `counter-db-credentials.enc.yaml`，用于单节点外部/托管 DB。 |
+| `external_distributed` | 合并 `counter-db-credentials.enc.yaml`，用于集群或分布式 DB 语义。 |
+
+不要使用 `shared-db` 这类实现昵称表达 capability state。`counter-db-credentials` 是 external DB capability state 的 secret source。
 
 ### Single-VPS Binary Or Podman Resources
 
@@ -189,7 +201,7 @@ just sops-gen-age-key
 just sops-encrypt-dev web-bff
 just sops-encrypt-dev outbox-relay-worker
 just sops-encrypt-dev projector-worker
-just sops-encrypt-dev counter-shared-db
+just sops-encrypt-dev counter-db-credentials
 ```
 
 ### 5. 运行服务
@@ -219,7 +231,7 @@ infra/security/sops/
 │   │   ├── web-bff.yaml
 │   │   ├── outbox-relay-worker.yaml
 │   │   ├── projector-worker.yaml
-│   │   ├── counter-shared-db.yaml
+│   │   ├── counter-db-credentials.example.yaml
 │   │   └── counter-service.yaml
 │   └── staging/
 │       ├── web-bff.yaml
@@ -228,7 +240,7 @@ infra/security/sops/
 │   ├── web-bff.enc.yaml
 │   ├── outbox-relay-worker.enc.yaml
 │   ├── projector-worker.enc.yaml
-│   ├── counter-shared-db.enc.yaml
+│   ├── counter-db-credentials.enc.yaml
 │   └── counter-service.enc.yaml
 ├── staging/                # 加密密钥（staging）
 │   ├── web-bff.enc.yaml
@@ -249,7 +261,7 @@ Secrets 操作入口统一通过 `repo-tools secrets ...` 或 `just sops-*` reci
 1. **停止使用 `.env`** — 删除或移出 `.env` 文件
 2. **生成 age 密钥** — `just sops-gen-age-key`
 3. **创建加密密钥** — 参考模板，填入值，然后 `just sops-encrypt-dev <deployable>`
-4. **本地进程使用 sops-run** — `just sops-run web-bff`
+4. **本地进程使用 sops-run** — `just sops-run web-bff dev 'cargo run -p web-bff' local_real`
 5. **单 VPS 使用 sops-export-env** — `just sops-export-env web-bff dev systemd-binary /run/axum-harness/web-bff.env`
 
 ---

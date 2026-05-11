@@ -361,6 +361,21 @@ just sops-run outbox-relay-worker dev 'cargo run -p outbox-relay-worker'
 just sops-run projector-worker dev 'cargo run -p projector-worker'
 ```
 
+`sops-run` 的最后一个参数是数据库 capability state，默认是 `local_real`。本地开发如果要显式写清楚状态，应使用：
+
+```bash
+just sops-run web-bff dev 'cargo run -p web-bff' local_real
+```
+
+需要验证 external libSQL/Turso 时，使用统一五态词汇，而不是 `shared-db` 这类实现昵称：
+
+```bash
+just sops-verify-counter-db-credentials dev
+just sops-run web-bff dev 'cargo run -p web-bff' external_single_node
+```
+
+当前 DB/storage lane 的 `disabled` 和 `local_mock` 状态没有 fallback；backend reference chain 需要 durable DB，因此命令会 fail fast。
+
 单 VPS `systemd-binary` 或 `podman` profile 使用宿主机临时 env-file，而不是 `.env`：
 
 ```bash

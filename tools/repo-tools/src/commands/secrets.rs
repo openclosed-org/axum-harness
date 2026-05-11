@@ -17,13 +17,13 @@ use crate::support::{
 };
 
 const AGE_KEY_RELATIVE_PATH: &str = ".config/sops/age/key.txt";
-const SHARED_COUNTER_DB: &str = "counter-shared-db";
+const COUNTER_DB_CREDENTIALS: &str = "counter-db-credentials";
 
 pub(crate) fn run(args: SecretsArgs) -> Result<()> {
     match args.command {
         SecretsCommand::DecryptEnv(args) => decrypt_env(args),
         SecretsCommand::ExportEnv(args) => export_env(args),
-        SecretsCommand::VerifyCounterSharedDb(args) => verify_counter_shared_db_cli(args),
+        SecretsCommand::VerifyCounterDbCredentials(args) => verify_counter_db_credentials_cli(args),
         SecretsCommand::Run(args) => run_with_secrets(args),
         SecretsCommand::Reconcile(args) => reconcile(args),
         SecretsCommand::Encrypt(args) => encrypt(args),
@@ -33,11 +33,14 @@ pub(crate) fn run(args: SecretsArgs) -> Result<()> {
     }
 }
 
-pub(crate) fn verify_counter_shared_db(env: &str) -> Result<()> {
+pub(crate) fn verify_counter_db_credentials(env: &str) -> Result<()> {
     let root = workspace_root()?;
-    let secret = counter_shared_db_path(&root, env);
+    let secret = counter_db_credentials_path(&root, env);
     if !secret.is_file() {
-        bail!("counter-shared-db secret not found: {}", secret.display());
+        bail!(
+            "counter-db-credentials secret not found: {}",
+            secret.display()
+        );
     }
 
     let exports = decrypt_exports(&secret)?;
@@ -59,7 +62,7 @@ pub(crate) fn verify_counter_shared_db(env: &str) -> Result<()> {
         bail!("shared counter DB URLs are not aligned across web-bff/outbox/projector");
     }
 
-    println!("counter-shared-db secret verified");
+    println!("counter-db-credentials secret verified");
     println!("  url: {app_url}");
     println!("  app token: {}", mask_token(app_token));
     println!("  outbox token: {}", mask_token(outbox_token));
@@ -79,7 +82,7 @@ fn decrypt_env(args: SecretsDecryptEnvArgs) -> Result<()> {
 fn export_env(args: SecretsExportEnvArgs) -> Result<()> {
     let root = workspace_root()?;
     require_tool("sops", "mise install")?;
-    let exports = collect_deployable_exports(&root, &args.env, &args.deployable)?;
+    let exports = collect_deployable_exports(&root, &args.env, &args.deployable, true)?;
     if exports.is_empty() {
         bail!(
             "no encrypted secrets found for {} in {}; refusing to write empty env file",
@@ -101,14 +104,21 @@ fn export_env(args: SecretsExportEnvArgs) -> Result<()> {
     Ok(())
 }
 
-fn verify_counter_shared_db_cli(args: SecretsEnvArgs) -> Result<()> {
-    verify_counter_shared_db(&args.env)
+fn verify_counter_db_credentials_cli(args: SecretsEnvArgs) -> Result<()> {
+    verify_counter_db_credentials(&args.env)
 }
 
 fn run_with_secrets(args: SecretsRunArgs) -> Result<()> {
     let root = workspace_root()?;
     require_tool("sops", "mise install")?;
-    let env_vars = collect_deployable_exports(&root, &args.env, &args.deployable)?;
+    validate_database_capability_state(args.db_state)?;
+    let include_counter_db_credentials = args.db_state.include_counter_db_credentials();
+    let env_vars = collect_deployable_exports(
+        &root,
+        &args.env,
+        &args.deployable,
+        include_counter_db_credentials,
+    )?;
 
     if env_vars.is_empty() {
         eprintln!(
@@ -134,6 +144,15 @@ fn run_with_secrets(args: SecretsRunArgs) -> Result<()> {
     println!("Running: {}", display_command(&command));
     println!("Environment: {}", args.env);
     println!("Deployable: {}", args.deployable);
+    println!("Database capability state: {}", args.db_state.label());
+    println!(
+        "Counter DB credentials: {}",
+        if include_counter_db_credentials {
+            "included"
+        } else {
+            "skipped"
+        }
+    );
     println!("Injected secret keys: {}", env_vars.len());
 
     let status = Command::new(program)
@@ -158,15 +177,16 @@ fn collect_deployable_exports(
     root: &Path,
     env: &str,
     deployable: &str,
+    include_counter_db_credentials: bool,
 ) -> Result<BTreeMap<String, String>> {
     let mut env_vars = BTreeMap::new();
     let deployable_path = secret_path(root, env, deployable);
     if deployable_path.is_file() {
         env_vars.extend(decrypt_exports(&deployable_path)?);
-    } else if deployable == SHARED_COUNTER_DB {
-        let shared_path = counter_shared_db_path(root, env);
-        if shared_path.is_file() {
-            env_vars.extend(decrypt_exports(&shared_path)?);
+    } else if deployable == COUNTER_DB_CREDENTIALS {
+        let credentials_path = counter_db_credentials_path(root, env);
+        if credentials_path.is_file() {
+            env_vars.extend(decrypt_exports(&credentials_path)?);
         }
     } else {
         bail!(
@@ -177,12 +197,48 @@ fn collect_deployable_exports(
         );
     }
 
-    let shared_path = counter_shared_db_path(root, env);
-    if shared_path.is_file() && deployable != SHARED_COUNTER_DB {
-        env_vars.extend(decrypt_exports(&shared_path)?);
+    let credentials_path = counter_db_credentials_path(root, env);
+    if include_counter_db_credentials
+        && credentials_path.is_file()
+        && deployable != COUNTER_DB_CREDENTIALS
+    {
+        let shared_exports = decrypt_exports(&credentials_path)?;
+        merge_counter_db_credentials_exports(&mut env_vars, shared_exports)?;
     }
 
     Ok(env_vars)
+}
+
+fn merge_counter_db_credentials_exports(
+    target: &mut BTreeMap<String, String>,
+    shared: BTreeMap<String, String>,
+) -> Result<()> {
+    for (key, value) in shared {
+        if let Some(existing) = target.get(&key) {
+            if existing != &value {
+                bail!(
+                    "counter-db-credentials key {key} conflicts with deployable secret; remove the key from the deployable secret or use secrets run --db-state local_real"
+                );
+            }
+            continue;
+        }
+        target.insert(key, value);
+    }
+    Ok(())
+}
+
+fn validate_database_capability_state(state: crate::cli::DatabaseCapabilityState) -> Result<()> {
+    match state {
+        crate::cli::DatabaseCapabilityState::LocalReal
+        | crate::cli::DatabaseCapabilityState::ExternalSingleNode
+        | crate::cli::DatabaseCapabilityState::ExternalDistributed => Ok(()),
+        crate::cli::DatabaseCapabilityState::Disabled => bail!(
+            "database capability state disabled is not supported for this backend reference chain; web-bff/counter requires durable storage"
+        ),
+        crate::cli::DatabaseCapabilityState::LocalMock => bail!(
+            "database capability state local_mock is not supported for this backend reference chain; use local_real for embedded libSQL/SQLite"
+        ),
+    }
 }
 
 fn write_env_file(path: &Path, exports: &BTreeMap<String, String>) -> Result<()> {
@@ -367,7 +423,10 @@ fn encrypt(args: SecretsEncryptArgs) -> Result<()> {
         .join(&args.env)
         .join(format!("{}.yaml", args.deployable));
     if !source.is_file() {
-        bail!("template secret not found: {}", source.display());
+        bail!(
+            "template secret not found: {}. Copy the matching *.example.yaml to this ignored plaintext path, replace placeholders locally, then re-run encryption.",
+            source.display()
+        );
     }
     let target = secret_path(&root, &args.env, &args.deployable);
     println!(
@@ -547,8 +606,8 @@ fn secret_path(root: &Path, env: &str, deployable: &str) -> PathBuf {
         .join(format!("{deployable}.enc.yaml"))
 }
 
-fn counter_shared_db_path(root: &Path, env: &str) -> PathBuf {
-    secret_path(root, env, SHARED_COUNTER_DB)
+fn counter_db_credentials_path(root: &Path, env: &str) -> PathBuf {
+    secret_path(root, env, COUNTER_DB_CREDENTIALS)
 }
 
 fn sops_age_key_file() -> Result<OsString> {
@@ -609,5 +668,46 @@ mod tests {
         assert_eq!(quote_env_value("abc-123_:/@%"), "abc-123_:/@%");
         assert_eq!(quote_env_value("hello world"), "'hello world'");
         assert_eq!(quote_env_value("it's ok"), "'it'\\''s ok'");
+    }
+
+    #[test]
+    fn counter_db_credentials_merge_preserves_deployable_values() {
+        let mut target = BTreeMap::from([(
+            "APP_DATABASE_URL".to_string(),
+            "file:/tmp/dev.db".to_string(),
+        )]);
+        let shared = BTreeMap::from([(
+            "APP_TURSO_URL".to_string(),
+            "libsql://example.turso.io".to_string(),
+        )]);
+
+        merge_counter_db_credentials_exports(&mut target, shared).unwrap();
+
+        assert_eq!(
+            target.get("APP_DATABASE_URL").map(String::as_str),
+            Some("file:/tmp/dev.db")
+        );
+        assert_eq!(
+            target.get("APP_TURSO_URL").map(String::as_str),
+            Some("libsql://example.turso.io")
+        );
+    }
+
+    #[test]
+    fn counter_db_credentials_merge_rejects_conflicting_values() {
+        let mut target =
+            BTreeMap::from([("APP_TURSO_URL".to_string(), "file:/tmp/dev.db".to_string())]);
+        let shared = BTreeMap::from([(
+            "APP_TURSO_URL".to_string(),
+            "libsql://example.turso.io".to_string(),
+        )]);
+
+        let error = merge_counter_db_credentials_exports(&mut target, shared).unwrap_err();
+
+        assert!(
+            error
+                .to_string()
+                .contains("counter-db-credentials key APP_TURSO_URL conflicts")
+        );
     }
 }

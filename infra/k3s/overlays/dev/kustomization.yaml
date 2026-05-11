@@ -25,7 +25,7 @@ patches:
         path: /spec/template/spec/containers/0/envFrom/-
         value:
           secretRef:
-            name: counter-shared-db-secrets
+            name: counter-db-credentials
       - op: replace
         path: /spec/template/spec/containers/0/resources/limits
         value:

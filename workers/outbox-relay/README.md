@@ -46,4 +46,4 @@ just validate-resilience strict
 1. 不要把当前 NATS 发布 adapter 写成“所有下游都已完成 broker 订阅”的最终形态。
 2. 不要跳过 checkpoint、幂等、恢复顺序这些 worker 硬约束。
 3. 不要把 `EventBus` 与 `runtime::PubSub` 的双写兼容面误写成“双 canonical 发布路径”。
-4. 不要在 shared libSQL/Turso secret 仍指向本地 `file:` 路径，或 `just sops-verify-counter-shared-db dev` / `just verify-counter-delivery strict` 仍未通过时，继续依赖 dev overlay 中已启用的 `outbox-relay-worker` 作为有效交付链路。
+4. 不要在 `counter-db-credentials` 仍指向本地 `file:` 路径，或 `just sops-verify-counter-db-credentials dev` / `just verify-counter-delivery strict` 仍未通过时，继续依赖 dev overlay 中已启用的 `outbox-relay-worker` 作为有效交付链路。

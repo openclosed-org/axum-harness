@@ -36,7 +36,7 @@ just sops-edit web-bff dev
 just sops-encrypt-dev web-bff
 ```
 
-Encrypted files live at `infra/security/sops/<env>/<deployable>.enc.yaml`. Plaintext templates under `infra/security/sops/templates/**` are ignored by git and must not be committed with real values.
+Encrypted files live at `infra/security/sops/<env>/<deployable>.enc.yaml`. Sanitized `*.example.yaml` files under `infra/security/sops/templates/**` are committed so users can see the secret shape. Local plaintext `*.yaml` files in the same tree are ignored by git and must not be committed with real values.
 
 ## Runtime Injection
 
@@ -45,8 +45,18 @@ Encrypted files live at `infra/security/sops/<env>/<deployable>.enc.yaml`. Plain
 Run a backend process with decrypted variables injected directly into the child process:
 
 ```bash
-just sops-run web-bff dev 'cargo run -p web-bff'
+just sops-run web-bff dev 'cargo run -p web-bff' local_real
 ```
+
+The last argument is the database capability state, not a secret nickname. Current supported states are:
+
+| state | Runtime behavior |
+|---|---|
+| `local_real` | Default local durable embedded DB path; does not merge `counter-db-credentials`. |
+| `external_single_node` | Merges `counter-db-credentials` for external single-node DB testing. |
+| `external_distributed` | Merges `counter-db-credentials` for distributed DB testing. |
+
+`disabled` and `local_mock` fail fast for this backend reference chain because it requires durable storage.
 
 ### Single-VPS Binary
 
@@ -90,7 +100,7 @@ Flux consumes the same encrypted files through SOPS decryption.
 
 ```bash
 just sops-validate
-just sops-verify-counter-shared-db dev
+just sops-verify-counter-db-credentials dev
 cargo run -p repo-tools -- secrets decrypt-env infra/security/sops/dev/web-bff.enc.yaml
 ```
 

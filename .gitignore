@@ -21,8 +21,10 @@ servers/bff/web-bff/file::memory*
 infra/local/generated/
 infra/local/state/
 .run/
-# SOPS plaintext templates — NEVER commit (contains secret shapes / may contain real values)
-infra/security/sops/templates/
+# SOPS plaintext secrets — NEVER commit real values.
+# Commit only sanitized *.example.yaml shapes so template users can see the contract.
+infra/security/sops/templates/**/*.yaml
+!infra/security/sops/templates/**/*.example.yaml
 
 # --- AI planning artifacts ---
 # .planning/ (uncomment to exclude - currently tracking for sync)

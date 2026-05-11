@@ -1,5 +1,5 @@
 # Kustomization — Dev outbox-relay-worker overlay
-# Independent worker pods must read from a shared libSQL/Turso database.
+# Independent worker pods must read from the external DB capability credentials.
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
@@ -23,14 +23,14 @@ patches:
         path: /spec/template/spec/containers/0/envFrom/-
         value:
           secretRef:
-            name: counter-shared-db-secrets
+            name: counter-db-credentials
       - op: add
         path: /spec/template/spec/containers/0/env/-
         value:
           name: OUTBOX_DATABASE_URL
           valueFrom:
             secretKeyRef:
-              name: counter-shared-db-secrets
+              name: counter-db-credentials
               key: OUTBOX_DATABASE_URL
       - op: add
         path: /spec/template/spec/containers/0/env/-
@@ -38,7 +38,7 @@ patches:
           name: OUTBOX_TURSO_AUTH_TOKEN
           valueFrom:
             secretKeyRef:
-              name: counter-shared-db-secrets
+              name: counter-db-credentials
               key: OUTBOX_TURSO_AUTH_TOKEN
   - target:
       kind: Deployment
