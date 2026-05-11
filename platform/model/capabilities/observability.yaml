@@ -1,0 +1,61 @@
+key: observability
+kind: infrastructure_capability
+description: >
+  Observability capability for logs, metrics, and traces. Local stdout/journald
+  and external collectors are separate runtime states.
+
+states:
+  disabled:
+    supported: false
+    reason: backend reference processes require at least local logs.
+    evidence: declared
+
+  local_mock:
+    supported: false
+    reason: observability should be either local_real output or an external collector, not a mock.
+    evidence: declared
+
+  local_real:
+    supported: true
+    default_provider: observability.tracing-stdout
+    semantic_limits:
+      - process/stdout or journald-local retention only
+      - no cross-process trace storage guarantee
+    evidence: checked
+
+  external_single_node:
+    supported: true
+    default_provider: observability.otel-collector
+    semantic_limits:
+      - single collector or storage endpoint
+      - repository checks config shape, not telemetry retention SLOs
+    evidence: declared
+
+  external_distributed:
+    supported: false
+    reason: distributed observability stack semantics are not validated by current gates.
+    evidence: declared
+
+providers:
+  - key: observability.tracing-stdout
+    technology: tracing/stdout
+    ownership: repository-local
+    notes: Local tracing/logging output.
+
+  - key: observability.otel-collector
+    technology: opentelemetry-collector
+    ownership: optional-resource-container-or-managed
+    notes: Optional OTLP collector lane.
+
+adapters:
+  - key: observability.tracing-adapter
+    path: packages/observability/adapters/tracing
+    notes: Local tracing adapter.
+
+  - key: observability.otel-adapter
+    path: packages/observability/adapters/opentelemetry
+    notes: OpenTelemetry adapter.
+
+resource_entities:
+  - key: telemetry-stream
+    purpose: Log, metric, and trace output stream for backend processes.

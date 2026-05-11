@@ -47,6 +47,48 @@
         }
       }
     },
+    "capability_bindings": {
+      "type": "object",
+      "description": "Capability-state/provider/resource bindings for this topology. Keys are capability keys such as database or cache.",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["state", "provider", "resource"],
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": ["disabled", "local_mock", "local_real", "external_single_node", "external_distributed"]
+          },
+          "provider": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*\\.[a-z][a-z0-9-]*$"
+          },
+          "resource": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$"
+          },
+          "adapter": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*\\.[a-z][a-z0-9-]*$"
+          },
+          "secret_binding": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$"
+          },
+          "provider_environment": {
+            "type": "string"
+          },
+          "semantic_limits": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "evidence": {
+            "type": "string",
+            "enum": ["declared", "checked", "tested", "proven"]
+          }
+        },
+        "additionalProperties": false
+      }
+    },
     "network": {
       "type": "object",
       "properties": {

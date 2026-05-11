@@ -1,0 +1,77 @@
+key: eventing
+kind: infrastructure_capability
+description: >
+  Eventing capability for live publication and async handoff. Durable business
+  event handoff remains anchored by the outbox; brokers accelerate delivery but
+  do not replace replayable storage.
+
+states:
+  disabled:
+    supported: true
+    reason: replay and polling paths can operate without live pub/sub.
+    evidence: declared
+
+  local_mock:
+    supported: true
+    default_provider: eventing.memory-bus
+    semantic_limits:
+      - test/dev only; no process restart durability
+      - not a replacement for outbox replay evidence
+    evidence: declared
+
+  local_real:
+    supported: true
+    default_provider: eventing.db-outbox
+    semantic_limits:
+      - DB polling and replay are durable but not a low-latency broker
+      - independent workers require shared database credentials when run out of process
+    evidence: checked
+
+  external_single_node:
+    supported: true
+    default_provider: eventing.nats-jetstream
+    semantic_limits:
+      - single broker topology; durability and retention depend on NATS configuration
+      - outbox remains the source for replay and recovery checks
+    evidence: declared
+
+  external_distributed:
+    supported: false
+    reason: clustered broker semantics have no repository replay or recovery gate yet.
+    evidence: declared
+
+providers:
+  - key: eventing.memory-bus
+    technology: in-memory
+    ownership: repository-local
+    notes: In-memory event bus for tests and local development.
+
+  - key: eventing.db-outbox
+    technology: libsql-outbox
+    ownership: repository-local
+    notes: Durable DB outbox polling and replay path.
+
+  - key: eventing.nats-jetstream
+    technology: nats-jetstream
+    ownership: optional-resource-container-or-managed
+    notes: Optional NATS/JetStream live eventing lane.
+
+adapters:
+  - key: eventing.memory-bus-adapter
+    path: packages/messaging
+    notes: In-memory EventBus adapter.
+
+  - key: eventing.outbox-publisher-adapter
+    path: packages/messaging
+    notes: Durable outbox publisher boundary.
+
+  - key: eventing.nats-bus-adapter
+    path: packages/messaging
+    notes: Optional NATS EventBus adapter.
+
+resource_entities:
+  - key: event-bus
+    purpose: Live event publication boundary.
+
+  - key: outbox-relay
+    purpose: Durable outbox relay source and delivery process identity.

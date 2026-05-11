@@ -1,0 +1,71 @@
+key: usage_metering
+kind: commercial_capability
+description: >
+  Usage metering capability for append-only product usage events. Usage events
+  feed quota, analytics, and billing decisions but must remain durable and
+  replayable enough for reconciliation.
+
+states:
+  disabled:
+    supported: true
+    default_provider: usage_metering.disabled
+    reason: usage events are optional when commercial mode is disabled.
+    evidence: tested
+
+  local_mock:
+    supported: true
+    default_provider: usage_metering.in-memory-ledger
+    semantic_limits:
+      - process-local only
+      - development and tests only
+    evidence: tested
+
+  local_real:
+    supported: true
+    default_provider: usage_metering.libsql-ledger
+    semantic_limits:
+      - durable append-only ledger in local DB
+      - no provider-side metering export yet
+    evidence: tested
+
+  external_single_node:
+    supported: true
+    default_provider: usage_metering.libsql-ledger
+    semantic_limits:
+      - still recorded locally; provider metering integration is not implemented
+      - shared external DB required for independent deployables
+    evidence: tested
+
+  external_distributed:
+    supported: false
+    reason: distributed metering workers and provider reconciliation are not implemented yet.
+    evidence: declared
+
+providers:
+  - key: usage_metering.disabled
+    technology: none
+    ownership: repository-local
+    notes: Usage metering disabled.
+
+  - key: usage_metering.in-memory-ledger
+    technology: in-memory
+    ownership: repository-local
+    notes: In-memory usage event recorder for local_mock.
+
+  - key: usage_metering.libsql-ledger
+    technology: libsql
+    ownership: repository-local
+    notes: Durable local usage event ledger.
+
+adapters:
+  - key: usage_metering.memory-adapter
+    path: packages/commercial
+    notes: In-memory UsageMeter implementation.
+
+  - key: usage_metering.libsql-adapter
+    path: servers/bff/web-bff/src/commercial.rs
+    notes: BFF-local durable UsageMeter implementation.
+
+resource_entities:
+  - key: usage-ledger
+    purpose: Append-only product usage event ledger.

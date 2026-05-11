@@ -1,0 +1,56 @@
+key: inbound_webhooks
+kind: integration_capability
+description: >
+  Inbound webhook capability for third-party events. Each provider webhook must
+  have signature verification and idempotency before it can affect business
+  state.
+
+states:
+  disabled:
+    supported: true
+    default_provider: inbound_webhooks.disabled
+    reason: generic inbound webhooks are optional.
+    evidence: declared
+
+  local_mock:
+    supported: false
+    reason: generic webhook fixture harness is not implemented yet.
+    evidence: declared
+
+  local_real:
+    supported: false
+    reason: generic local webhook registry is not implemented yet.
+    evidence: declared
+
+  external_single_node:
+    supported: true
+    default_provider: inbound_webhooks.creem-billing
+    semantic_limits:
+      - currently proven only for the Creem billing webhook route shape
+      - generic provider registry is not implemented yet
+    evidence: tested
+
+  external_distributed:
+    supported: false
+    reason: distributed webhook ingestion workers and replay gates are not implemented yet.
+    evidence: declared
+
+providers:
+  - key: inbound_webhooks.disabled
+    technology: none
+    ownership: repository-local
+    notes: No generic inbound webhook ingestion.
+
+  - key: inbound_webhooks.creem-billing
+    technology: creem-webhook
+    ownership: managed-provider
+    notes: Signed Creem billing webhook ingestion path.
+
+adapters:
+  - key: inbound_webhooks.creem-bff-adapter
+    path: servers/bff/web-bff/src/handlers/billing.rs
+    notes: Creem webhook HTTP handler with signature verification and idempotency ledger.
+
+resource_entities:
+  - key: inbound-webhook-ledger
+    purpose: Durable idempotency and replay record for inbound provider events.

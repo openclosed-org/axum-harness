@@ -1,0 +1,828 @@
+- key: audit_log
+  kind: governance_capability
+  description: |
+    Durable audit capability for security and operational events. Audit events are separate from ordinary logs and must preserve actor, action, resource, outcome, and correlation context.
+  states:
+    disabled:
+      evidence: declared
+      reason: protected backend operations require at least local audit evidence.
+      supported: false
+    external_distributed:
+      evidence: declared
+      reason: distributed audit pipeline, retention, and export semantics are not implemented yet.
+      supported: false
+    external_single_node:
+      default_provider: audit_log.libsql-ledger
+      evidence: tested
+      semantic_limits:
+      - shared external DB can hold audit events for single-node deployment paths
+      - external SIEM/export is not implemented yet
+      supported: true
+    local_mock:
+      default_provider: audit_log.in-memory-mirror
+      evidence: tested
+      semantic_limits:
+      - tests only; not durable
+      - useful only as a readable mirror for assertions
+      supported: true
+    local_real:
+      default_provider: audit_log.libsql-ledger
+      evidence: tested
+      semantic_limits:
+      - append-only local durable audit table
+      - retention/export policy is not implemented yet
+      supported: true
+  providers:
+  - key: audit_log.in-memory-mirror
+    notes: Test-readable audit mirror.
+    ownership: repository-local
+    technology: in-memory
+  - key: audit_log.libsql-ledger
+    notes: Durable audit event table written by BFF adapter.
+    ownership: repository-local
+    technology: libsql
+  adapters:
+  - key: audit_log.memory-adapter
+    notes: Framework-neutral audit event contract with in-memory test sink.
+    path: packages/security/audit
+  - key: audit_log.libsql-adapter
+    notes: BFF-local durable audit sink.
+    path: servers/bff/web-bff/src/audit.rs
+  resource_entities:
+  - key: audit-event-log
+    purpose: Durable audit event stream for protected backend operations.
+- key: authn
+  kind: infrastructure_capability
+  description: |
+    Authentication capability for request identity. Development identity injection and production OIDC/JWT verification remain separate runtime states.
+  states:
+    disabled:
+      evidence: declared
+      reason: protected BFF routes require a request identity boundary.
+      supported: false
+    external_distributed:
+      evidence: declared
+      reason: multi-provider or HA identity-provider semantics are not modeled or gated yet.
+      supported: false
+    external_single_node:
+      default_provider: authn.oidc
+      evidence: checked
+      semantic_limits:
+      - external identity provider availability and rotation are provider-dependent
+      - repository validates configuration shape, not provider uptime
+      supported: true
+    local_mock:
+      default_provider: authn.dev-headers
+      evidence: tested
+      semantic_limits:
+      - development and tests only
+      - rejected by production runtime guard
+      supported: true
+    local_real:
+      default_provider: authn.jwt-hs256
+      evidence: checked
+      semantic_limits:
+      - local JWT verification; key management is local secret dependent
+      - production requires OIDC issuer or a non-default JWT secret
+      supported: true
+  providers:
+  - key: authn.dev-headers
+    notes: Local identity injection for dev and tests.
+    ownership: repository-local
+    technology: http-dev-headers
+  - key: authn.jwt-hs256
+    notes: Local JWT verification using deployable secret material.
+    ownership: repository-local
+    technology: jwt-hs256
+  - key: authn.oidc
+    notes: OIDC/JWKS/introspection verification path.
+    ownership: external-provider-or-resource-container
+    technology: oidc
+  adapters:
+  - key: authn.bff-middleware-adapter
+    notes: BFF request identity extraction and verification boundary.
+    path: servers/bff/web-bff/src/middleware/auth_context.rs
+  - key: authn.oidc-verifier-adapter
+    notes: OIDC verifier package boundary.
+    path: packages/authn/oidc-verifier
+  resource_entities:
+  - key: request-identity
+    purpose: Authenticated user and tenant context propagated through BFF requests.
+- key: authz
+  kind: infrastructure_capability
+  description: |
+    Authorization capability for relationship and permission checks. Application code depends on AuthzPort instead of a concrete policy-plane provider.
+  states:
+    disabled:
+      evidence: declared
+      reason: tenant-scoped mutations require authorization checks.
+      supported: false
+    external_distributed:
+      evidence: declared
+      reason: HA policy-plane topology and consistency semantics are not gated yet.
+      supported: false
+    external_single_node:
+      default_provider: authz.openfga
+      evidence: checked
+      semantic_limits:
+      - single external policy-plane endpoint
+      - production runtime guard requires an authz endpoint
+      supported: true
+    local_mock:
+      default_provider: authz.in-memory-tuples
+      evidence: tested
+      semantic_limits:
+      - direct tuple matching only
+      - dev convenience allow-all mode is not production safe
+      supported: true
+    local_real:
+      default_provider: authz.in-memory-tuples
+      evidence: tested
+      semantic_limits:
+      - process-local tuple store only
+      - suitable for tests and local development, not independent replicas
+      supported: true
+  providers:
+  - key: authz.in-memory-tuples
+    notes: MockAuthzAdapter for dev/test relationship checks.
+    ownership: repository-local
+    technology: in-memory-tuples
+  - key: authz.openfga
+    notes: OpenFGA-compatible authorization adapter.
+    ownership: optional-resource-container-or-managed
+    technology: openfga
+  adapters:
+  - key: authz.mock-adapter
+    notes: In-memory AuthzPort adapter.
+    path: packages/authz
+  - key: authz.openfga-adapter
+    notes: OpenFGA AuthzPort adapter.
+    path: packages/authz
+  resource_entities:
+  - key: authz-policy-store
+    purpose: Authorization relationship and policy data used by protected operations.
+- key: billing
+  kind: commercial_capability
+  description: |
+    Billing provider capability for checkout, signed provider webhooks, and local entitlement projection. Business code must not call provider APIs directly.
+  states:
+    disabled:
+      default_provider: billing.disabled
+      evidence: tested
+      reason: paid product flows are optional for the backend reference chain.
+      supported: true
+    external_distributed:
+      evidence: declared
+      reason: clustered webhook workers, reconciliation, and provider replay gates are not implemented yet.
+      supported: false
+    external_single_node:
+      default_provider: billing.creem
+      evidence: tested
+      semantic_limits:
+      - provider checkout API connectivity is partially checked
+      - real provider webhook delivery through public ingress is not yet proven
+      supported: true
+    local_mock:
+      evidence: declared
+      reason: checkout provider mocking is not implemented; use commercial local_mock for entitlement/quota seams.
+      supported: false
+    local_real:
+      evidence: declared
+      reason: real payment networks are external; local_real only covers downstream ledgers and projections.
+      supported: false
+  providers:
+  - key: billing.disabled
+    notes: No billing provider integration.
+    ownership: repository-local
+    technology: none
+  - key: billing.creem
+    notes: Reference billing provider adapter for checkout and signed webhook projection.
+    ownership: managed-provider
+    technology: creem
+  adapters:
+  - key: billing.creem-bff-adapter
+    notes: BFF-local Creem checkout and webhook adapter.
+    path: servers/bff/web-bff/src/billing.rs
+  resource_entities:
+  - key: billing-account
+    purpose: Provider account and product mapping boundary.
+  - key: billing-webhook-ledger
+    purpose: Durable idempotency ledger for provider webhook events.
+- key: cache
+  kind: infrastructure_capability
+  description: |
+    Cache capability for hot-path acceleration. Cache state must not become the source of truth for quota, entitlement, or business invariants.
+  states:
+    disabled:
+      evidence: declared
+      reason: backend reference chain can run without a cache accelerator.
+      supported: true
+    external_distributed:
+      evidence: declared
+      reason: clustered cache behavior has no repository validator or smoke evidence yet.
+      supported: false
+    external_single_node:
+      default_provider: cache.valkey
+      evidence: declared
+      semantic_limits:
+      - single external cache node; not a durable ledger
+      - outages must degrade to durable source-of-truth paths where supported
+      supported: true
+    local_mock:
+      evidence: declared
+      reason: cache semantics are simple enough to use disabled or local_real instead of a mock cache.
+      supported: false
+    local_real:
+      default_provider: cache.moka
+      evidence: declared
+      semantic_limits:
+      - process-local cache only; no cross-process coherence
+      - cache entries must be disposable and rebuildable from durable state
+      supported: true
+  providers:
+  - key: cache.moka
+    notes: In-process cache for local and low-resource profiles.
+    ownership: repository-local
+    technology: moka
+  - key: cache.valkey
+    notes: Optional external cache provider for single-node profiles.
+    ownership: optional-resource-container-or-managed
+    technology: valkey
+  - key: cache.dragonfly
+    notes: Optional Redis-compatible cache lane for staging or larger profiles.
+    ownership: optional-resource-container-or-managed
+    technology: dragonfly
+  adapters:
+  - key: cache.moka-adapter
+    notes: Planned in-process cache adapter boundary.
+    path: packages/cache
+  - key: cache.redis-compatible-adapter
+    notes: Planned Valkey/Dragonfly-compatible adapter boundary.
+    path: packages/cache
+  resource_entities:
+  - key: web-bff-cache
+    purpose: Disposable acceleration cache for BFF hot paths.
+- key: database
+  kind: infrastructure_capability
+  description: |
+    Durable application storage capability for the backend reference chain. The capability key is database; provider keys are capability-prefixed so embedded libSQL, SQLite files, Turso Cloud, and SurrealDB do not become resource names or runtime states.
+  states:
+    disabled:
+      evidence: declared
+      reason: web-bff/counter reference chain requires durable storage.
+      supported: false
+    external_distributed:
+      evidence: declared
+      reason: repository-level distributed DB behavior does not yet have validator, replay, or operational evidence.
+      supported: false
+    external_single_node:
+      default_provider: database.turso-cloud
+      evidence: checked
+      semantic_limits:
+      - external service availability and durability are provider-dependent
+      - repository does not claim distributed behavior from provider marketing alone
+      supported: true
+    local_mock:
+      evidence: declared
+      reason: database mock would violate persistence, replay, and migration expectations.
+      supported: false
+    local_real:
+      default_provider: database.embedded-libsql
+      evidence: checked
+      semantic_limits:
+      - local durable storage only; not a shared DB for independent worker replicas unless explicitly configured
+      - process and host placement decide file durability and access semantics
+      supported: true
+  providers:
+  - key: database.embedded-libsql
+    notes: Embedded local durable database path used by default local_real inner loops.
+    ownership: repository-local
+    technology: libsql
+  - key: database.sqlite-file
+    notes: SQLite-compatible local file lane for low-resource and test paths.
+    ownership: repository-local
+    technology: sqlite
+  - key: database.turso-cloud
+    notes: Optional managed external DB path for external_single_node semantics until repository evidence proves stronger claims.
+    ownership: managed-provider
+    technology: turso/libsql
+  - key: database.surrealdb
+    notes: Optional database provider lane; not the default backend reference DB.
+    ownership: optional-resource-container-or-managed
+    technology: surrealdb
+  adapters:
+  - key: database.libsql-local-adapter
+    notes: Local libSQL/SQLite-compatible adapter path.
+    path: packages/data-adapters/turso
+  - key: database.libsql-remote-adapter
+    notes: Remote libSQL/Turso-compatible adapter path.
+    path: packages/data-adapters/turso
+  - key: database.surrealdb-adapter
+    notes: Optional SurrealDB adapter lane.
+    path: packages/data-adapters/surrealdb
+  resource_entities:
+  - key: counter-db
+    purpose: Durable write model and backend reference-chain state.
+  - key: counter-outbox
+    purpose: Durable event handoff and relay source for the counter reference chain.
+  - key: counter-read-model
+    purpose: Rebuildable projection/read-model state for projector verification.
+- key: discord_bot
+  kind: integration_capability
+  description: |
+    Discord channel capability. Discord interactions and gateway events must stay as channel adapters and must not own business rules.
+  states:
+    disabled:
+      default_provider: discord_bot.disabled
+      evidence: declared
+      reason: Discord channel is optional.
+      supported: true
+    external_distributed:
+      evidence: declared
+      reason: distributed gateway workers and dedupe semantics are not implemented yet.
+      supported: false
+    external_single_node:
+      evidence: declared
+      reason: Discord interactions or gateway adapter is not implemented yet.
+      supported: false
+    local_mock:
+      evidence: declared
+      reason: command fixture adapter is not implemented yet.
+      supported: false
+    local_real:
+      evidence: declared
+      reason: local interaction adapter is not implemented yet.
+      supported: false
+  providers:
+  - key: discord_bot.disabled
+    notes: No Discord bot channel.
+    ownership: repository-local
+    technology: none
+  - key: discord_bot.discord-api
+    notes: Planned Discord API adapter lane.
+    ownership: managed-provider
+    technology: discord-api
+  adapters:
+  - key: discord_bot.noop-adapter
+    notes: Planned bot worker/channel adapter boundary.
+    path: workers/discord-bot
+  resource_entities:
+  - key: discord-channel
+    purpose: Planned Discord command and interaction channel identity.
+- key: entitlement
+  kind: commercial_capability
+  description: |
+    Entitlement decision capability for paid or gated features. Decisions are made from local projections or static local policy, never live provider reads in business code.
+  states:
+    disabled:
+      default_provider: entitlement.disabled
+      evidence: tested
+      reason: paid feature gates can be disabled for the reference chain.
+      supported: true
+    external_distributed:
+      evidence: declared
+      reason: distributed entitlement projection and replay workers are not implemented yet.
+      supported: false
+    external_single_node:
+      default_provider: entitlement.billing-webhook-projection
+      evidence: tested
+      semantic_limits:
+      - fed by provider webhook projection into local storage
+      - real provider webhook ingress remains unproven until Creem public URL is accepted
+      supported: true
+    local_mock:
+      default_provider: entitlement.static-allow-list
+      evidence: tested
+      semantic_limits:
+      - development and tests only
+      - production runtime guard rejects commercial local_mock
+      supported: true
+    local_real:
+      default_provider: entitlement.libsql-projection
+      evidence: tested
+      semantic_limits:
+      - local durable projection is authoritative for decisions
+      - provider reconciliation is not yet complete
+      supported: true
+  providers:
+  - key: entitlement.disabled
+    notes: Entitlement guard disabled.
+    ownership: repository-local
+    technology: none
+  - key: entitlement.static-allow-list
+    notes: Static capability allow-list used by local_mock.
+    ownership: repository-local
+    technology: static-config
+  - key: entitlement.libsql-projection
+    notes: Durable local entitlement projection.
+    ownership: repository-local
+    technology: libsql
+  - key: entitlement.billing-webhook-projection
+    notes: Local entitlement projection updated from signed billing webhooks.
+    ownership: repository-local
+    technology: provider-webhook-projection
+  adapters:
+  - key: entitlement.static-adapter
+    notes: Static entitlement resolver.
+    path: packages/commercial
+  - key: entitlement.libsql-adapter
+    notes: BFF-local durable entitlement resolver and projection.
+    path: servers/bff/web-bff/src/commercial.rs
+  resource_entities:
+  - key: tenant-entitlement
+    purpose: Tenant and subject entitlement projection for gated capabilities.
+- key: eventing
+  kind: infrastructure_capability
+  description: |
+    Eventing capability for live publication and async handoff. Durable business event handoff remains anchored by the outbox; brokers accelerate delivery but do not replace replayable storage.
+  states:
+    disabled:
+      evidence: declared
+      reason: replay and polling paths can operate without live pub/sub.
+      supported: true
+    external_distributed:
+      evidence: declared
+      reason: clustered broker semantics have no repository replay or recovery gate yet.
+      supported: false
+    external_single_node:
+      default_provider: eventing.nats-jetstream
+      evidence: declared
+      semantic_limits:
+      - single broker topology; durability and retention depend on NATS configuration
+      - outbox remains the source for replay and recovery checks
+      supported: true
+    local_mock:
+      default_provider: eventing.memory-bus
+      evidence: declared
+      semantic_limits:
+      - test/dev only; no process restart durability
+      - not a replacement for outbox replay evidence
+      supported: true
+    local_real:
+      default_provider: eventing.db-outbox
+      evidence: checked
+      semantic_limits:
+      - DB polling and replay are durable but not a low-latency broker
+      - independent workers require shared database credentials when run out of process
+      supported: true
+  providers:
+  - key: eventing.memory-bus
+    notes: In-memory event bus for tests and local development.
+    ownership: repository-local
+    technology: in-memory
+  - key: eventing.db-outbox
+    notes: Durable DB outbox polling and replay path.
+    ownership: repository-local
+    technology: libsql-outbox
+  - key: eventing.nats-jetstream
+    notes: Optional NATS/JetStream live eventing lane.
+    ownership: optional-resource-container-or-managed
+    technology: nats-jetstream
+  adapters:
+  - key: eventing.memory-bus-adapter
+    notes: In-memory EventBus adapter.
+    path: packages/messaging
+  - key: eventing.outbox-publisher-adapter
+    notes: Durable outbox publisher boundary.
+    path: packages/messaging
+  - key: eventing.nats-bus-adapter
+    notes: Optional NATS EventBus adapter.
+    path: packages/messaging
+  resource_entities:
+  - key: event-bus
+    purpose: Live event publication boundary.
+  - key: outbox-relay
+    purpose: Durable outbox relay source and delivery process identity.
+- key: inbound_webhooks
+  kind: integration_capability
+  description: |
+    Inbound webhook capability for third-party events. Each provider webhook must have signature verification and idempotency before it can affect business state.
+  states:
+    disabled:
+      default_provider: inbound_webhooks.disabled
+      evidence: declared
+      reason: generic inbound webhooks are optional.
+      supported: true
+    external_distributed:
+      evidence: declared
+      reason: distributed webhook ingestion workers and replay gates are not implemented yet.
+      supported: false
+    external_single_node:
+      default_provider: inbound_webhooks.creem-billing
+      evidence: tested
+      semantic_limits:
+      - currently proven only for the Creem billing webhook route shape
+      - generic provider registry is not implemented yet
+      supported: true
+    local_mock:
+      evidence: declared
+      reason: generic webhook fixture harness is not implemented yet.
+      supported: false
+    local_real:
+      evidence: declared
+      reason: generic local webhook registry is not implemented yet.
+      supported: false
+  providers:
+  - key: inbound_webhooks.disabled
+    notes: No generic inbound webhook ingestion.
+    ownership: repository-local
+    technology: none
+  - key: inbound_webhooks.creem-billing
+    notes: Signed Creem billing webhook ingestion path.
+    ownership: managed-provider
+    technology: creem-webhook
+  adapters:
+  - key: inbound_webhooks.creem-bff-adapter
+    notes: Creem webhook HTTP handler with signature verification and idempotency ledger.
+    path: servers/bff/web-bff/src/handlers/billing.rs
+  resource_entities:
+  - key: inbound-webhook-ledger
+    purpose: Durable idempotency and replay record for inbound provider events.
+- key: notification
+  kind: growth_capability
+  description: |
+    Notification capability for outbound user communication. Runtime delivery should go through ports and workers rather than direct provider SDK calls from business services.
+  states:
+    disabled:
+      default_provider: notification.disabled
+      evidence: declared
+      reason: notifications are optional for the backend reference chain.
+      supported: true
+    external_distributed:
+      evidence: declared
+      reason: distributed notification workers, retries, and dead-letter paths are not implemented yet.
+      supported: false
+    external_single_node:
+      evidence: declared
+      reason: email/push provider adapters are not implemented yet.
+      supported: false
+    local_mock:
+      evidence: declared
+      reason: notification test double and delivery outbox are not implemented yet.
+      supported: false
+    local_real:
+      evidence: declared
+      reason: local notification outbox and delivery worker are not implemented yet.
+      supported: false
+  providers:
+  - key: notification.disabled
+    notes: No notification delivery.
+    ownership: repository-local
+    technology: none
+  - key: notification.smtp
+    notes: Planned transactional email provider lane.
+    ownership: external-provider-or-resource-container
+    technology: smtp
+  adapters:
+  - key: notification.noop-adapter
+    notes: Planned no-op notification port implementation.
+    path: packages/notification
+  resource_entities:
+  - key: notification-outbox
+    purpose: Planned durable notification delivery queue.
+- key: observability
+  kind: infrastructure_capability
+  description: |
+    Observability capability for logs, metrics, and traces. Local stdout/journald and external collectors are separate runtime states.
+  states:
+    disabled:
+      evidence: declared
+      reason: backend reference processes require at least local logs.
+      supported: false
+    external_distributed:
+      evidence: declared
+      reason: distributed observability stack semantics are not validated by current gates.
+      supported: false
+    external_single_node:
+      default_provider: observability.otel-collector
+      evidence: declared
+      semantic_limits:
+      - single collector or storage endpoint
+      - repository checks config shape, not telemetry retention SLOs
+      supported: true
+    local_mock:
+      evidence: declared
+      reason: observability should be either local_real output or an external collector, not a mock.
+      supported: false
+    local_real:
+      default_provider: observability.tracing-stdout
+      evidence: checked
+      semantic_limits:
+      - process/stdout or journald-local retention only
+      - no cross-process trace storage guarantee
+      supported: true
+  providers:
+  - key: observability.tracing-stdout
+    notes: Local tracing/logging output.
+    ownership: repository-local
+    technology: tracing/stdout
+  - key: observability.otel-collector
+    notes: Optional OTLP collector lane.
+    ownership: optional-resource-container-or-managed
+    technology: opentelemetry-collector
+  adapters:
+  - key: observability.tracing-adapter
+    notes: Local tracing adapter.
+    path: packages/observability/adapters/tracing
+  - key: observability.otel-adapter
+    notes: OpenTelemetry adapter.
+    path: packages/observability/adapters/opentelemetry
+  resource_entities:
+  - key: telemetry-stream
+    purpose: Log, metric, and trace output stream for backend processes.
+- key: outbound_webhooks
+  kind: integration_capability
+  description: |
+    Outbound webhook capability for product integrations. Delivery must eventually use a durable registry, signing, retries, and a dead-letter path.
+  states:
+    disabled:
+      default_provider: outbound_webhooks.disabled
+      evidence: declared
+      reason: outbound product webhooks are optional.
+      supported: true
+    external_distributed:
+      evidence: declared
+      reason: distributed delivery workers and replay gates are not implemented yet.
+      supported: false
+    external_single_node:
+      evidence: declared
+      reason: external delivery worker is not implemented yet.
+      supported: false
+    local_mock:
+      evidence: declared
+      reason: local webhook delivery fake is not implemented yet.
+      supported: false
+    local_real:
+      evidence: declared
+      reason: local registry, signer, retry, and dead-letter path are not implemented yet.
+      supported: false
+  providers:
+  - key: outbound_webhooks.disabled
+    notes: No outbound webhook delivery.
+    ownership: repository-local
+    technology: none
+  adapters:
+  - key: outbound_webhooks.noop-adapter
+    notes: Planned no-op outbound webhook port implementation.
+    path: packages/webhooks
+  resource_entities:
+  - key: outbound-webhook-delivery
+    purpose: Planned registry and delivery ledger for outbound webhook attempts.
+- key: quota_credits
+  kind: commercial_capability
+  description: |
+    Quota and credit ledger capability. Cache can accelerate quota reads, but the ledger itself must remain durable when commercial mode is real.
+  states:
+    disabled:
+      default_provider: quota_credits.disabled
+      evidence: tested
+      reason: quota enforcement is optional when commercial mode is disabled.
+      supported: true
+    external_distributed:
+      evidence: declared
+      reason: distributed quota coordination and reconciliation are not implemented yet.
+      supported: false
+    external_single_node:
+      default_provider: quota_credits.libsql-ledger
+      evidence: tested
+      semantic_limits:
+      - shared external DB can coordinate independent single-node deployables
+      - cache is not a ledger source of truth
+      supported: true
+    local_mock:
+      default_provider: quota_credits.in-memory-ledger
+      evidence: tested
+      semantic_limits:
+      - process-local reserve/commit/release semantics
+      - development and tests only
+      supported: true
+    local_real:
+      default_provider: quota_credits.libsql-ledger
+      evidence: tested
+      semantic_limits:
+      - durable reservation ledger in local DB
+      - no cross-region quota semantics
+      supported: true
+  providers:
+  - key: quota_credits.disabled
+    notes: Quota enforcement disabled.
+    ownership: repository-local
+    technology: none
+  - key: quota_credits.in-memory-ledger
+    notes: In-memory quota ledger for local_mock.
+    ownership: repository-local
+    technology: in-memory
+  - key: quota_credits.libsql-ledger
+    notes: Durable quota reservation and usage ledger.
+    ownership: repository-local
+    technology: libsql
+  adapters:
+  - key: quota_credits.memory-adapter
+    notes: In-memory QuotaLedger implementation.
+    path: packages/commercial
+  - key: quota_credits.libsql-adapter
+    notes: BFF-local durable QuotaLedger implementation.
+    path: servers/bff/web-bff/src/commercial.rs
+  resource_entities:
+  - key: quota-ledger
+    purpose: Durable quota reservation and commit ledger.
+- key: telegram_bot
+  kind: integration_capability
+  description: |
+    Telegram channel capability. Bot commands must route through existing use cases and preserve authz, entitlement, quota, tenant, audit, and abuse boundaries.
+  states:
+    disabled:
+      default_provider: telegram_bot.disabled
+      evidence: declared
+      reason: Telegram channel is optional.
+      supported: true
+    external_distributed:
+      evidence: declared
+      reason: distributed bot workers and dedupe semantics are not implemented yet.
+      supported: false
+    external_single_node:
+      evidence: declared
+      reason: Telegram polling or webhook adapter is not implemented yet.
+      supported: false
+    local_mock:
+      evidence: declared
+      reason: command fixture adapter is not implemented yet.
+      supported: false
+    local_real:
+      evidence: declared
+      reason: local polling adapter is not implemented yet.
+      supported: false
+  providers:
+  - key: telegram_bot.disabled
+    notes: No Telegram bot channel.
+    ownership: repository-local
+    technology: none
+  - key: telegram_bot.telegram-api
+    notes: Planned Telegram Bot API adapter lane.
+    ownership: managed-provider
+    technology: telegram-bot-api
+  adapters:
+  - key: telegram_bot.noop-adapter
+    notes: Planned bot worker/channel adapter boundary.
+    path: workers/telegram-bot
+  resource_entities:
+  - key: telegram-channel
+    purpose: Planned Telegram command and event channel identity.
+- key: usage_metering
+  kind: commercial_capability
+  description: |
+    Usage metering capability for append-only product usage events. Usage events feed quota, analytics, and billing decisions but must remain durable and replayable enough for reconciliation.
+  states:
+    disabled:
+      default_provider: usage_metering.disabled
+      evidence: tested
+      reason: usage events are optional when commercial mode is disabled.
+      supported: true
+    external_distributed:
+      evidence: declared
+      reason: distributed metering workers and provider reconciliation are not implemented yet.
+      supported: false
+    external_single_node:
+      default_provider: usage_metering.libsql-ledger
+      evidence: tested
+      semantic_limits:
+      - still recorded locally; provider metering integration is not implemented
+      - shared external DB required for independent deployables
+      supported: true
+    local_mock:
+      default_provider: usage_metering.in-memory-ledger
+      evidence: tested
+      semantic_limits:
+      - process-local only
+      - development and tests only
+      supported: true
+    local_real:
+      default_provider: usage_metering.libsql-ledger
+      evidence: tested
+      semantic_limits:
+      - durable append-only ledger in local DB
+      - no provider-side metering export yet
+      supported: true
+  providers:
+  - key: usage_metering.disabled
+    notes: Usage metering disabled.
+    ownership: repository-local
+    technology: none
+  - key: usage_metering.in-memory-ledger
+    notes: In-memory usage event recorder for local_mock.
+    ownership: repository-local
+    technology: in-memory
+  - key: usage_metering.libsql-ledger
+    notes: Durable local usage event ledger.
+    ownership: repository-local
+    technology: libsql
+  adapters:
+  - key: usage_metering.memory-adapter
+    notes: In-memory UsageMeter implementation.
+    path: packages/commercial
+  - key: usage_metering.libsql-adapter
+    notes: BFF-local durable UsageMeter implementation.
+    path: servers/bff/web-bff/src/commercial.rs
+  resource_entities:
+  - key: usage-ledger
+    purpose: Append-only product usage event ledger.

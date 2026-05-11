@@ -1,0 +1,96 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Capability",
+  "description": "A cross-cutting capability declaration with five-state runtime semantics and capability-prefixed provider keys.",
+  "type": "object",
+  "required": ["key", "kind", "states", "providers"],
+  "properties": {
+    "key": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*$",
+      "description": "Capability key, such as database, cache, billing, or usage_metering."
+    },
+    "kind": {
+      "type": "string",
+      "enum": ["infrastructure_capability", "commercial_capability", "growth_capability", "integration_capability", "governance_capability"]
+    },
+    "description": {
+      "type": "string"
+    },
+    "states": {
+      "type": "object",
+      "required": ["disabled", "local_mock", "local_real", "external_single_node", "external_distributed"],
+      "properties": {
+        "disabled": { "$ref": "#/definitions/state" },
+        "local_mock": { "$ref": "#/definitions/state" },
+        "local_real": { "$ref": "#/definitions/state" },
+        "external_single_node": { "$ref": "#/definitions/state" },
+        "external_distributed": { "$ref": "#/definitions/state" }
+      },
+      "additionalProperties": false
+    },
+    "providers": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/definitions/provider" }
+    },
+    "adapters": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/adapter" }
+    },
+    "resource_entities": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/resource_entity" }
+    }
+  },
+  "definitions": {
+    "state": {
+      "type": "object",
+      "required": ["supported"],
+      "properties": {
+        "supported": { "type": "boolean" },
+        "reason": { "type": "string" },
+        "default_provider": { "type": "string", "pattern": "^[a-z][a-z0-9_]*\\.[a-z][a-z0-9-]*$" },
+        "semantic_limits": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "evidence": {
+          "type": "string",
+          "enum": ["declared", "checked", "tested", "proven"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "provider": {
+      "type": "object",
+      "required": ["key", "technology", "ownership"],
+      "properties": {
+        "key": { "type": "string", "pattern": "^[a-z][a-z0-9_]*\\.[a-z][a-z0-9-]*$" },
+        "technology": { "type": "string" },
+        "ownership": { "type": "string" },
+        "notes": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "adapter": {
+      "type": "object",
+      "required": ["key", "path"],
+      "properties": {
+        "key": { "type": "string", "pattern": "^[a-z][a-z0-9_]*\\.[a-z][a-z0-9-]*$" },
+        "path": { "type": "string" },
+        "notes": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "resource_entity": {
+      "type": "object",
+      "required": ["key", "purpose"],
+      "properties": {
+        "key": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+        "purpose": { "type": "string" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

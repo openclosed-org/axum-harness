@@ -75,6 +75,19 @@ struct TopologyModel {
     description: Option<String>,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+struct CapabilityModel {
+    key: String,
+    kind: String,
+    description: Option<String>,
+    states: serde_json::Value,
+    providers: Vec<serde_json::Value>,
+    #[serde(default)]
+    adapters: Vec<serde_json::Value>,
+    #[serde(default)]
+    resource_entities: Vec<serde_json::Value>,
+}
+
 fn main() -> Result<()> {
     tracing_subscriber::fmt()
         .with_env_filter(
@@ -113,6 +126,9 @@ fn main() -> Result<()> {
 
     // Generate resources catalog
     generate_resources_catalog(&platform_dir, output_dir)?;
+
+    // Generate capabilities catalog
+    generate_capabilities_catalog(&platform_dir, output_dir)?;
 
     // Generate topology documentation
     generate_topology_doc(&platform_dir, output_dir)?;
@@ -198,6 +214,23 @@ fn generate_resources_catalog(platform_dir: &Path, output_dir: &Path) -> Result<
         .with_context(|| format!("Failed to write: {}", catalog_path.display()))?;
 
     info!("  ✓ {} resources cataloged", resources.len());
+    Ok(())
+}
+
+fn generate_capabilities_catalog(platform_dir: &Path, output_dir: &Path) -> Result<()> {
+    info!("Generating capabilities catalog...");
+
+    let capabilities_dir = platform_dir.join("model/capabilities");
+    let capabilities: Vec<CapabilityModel> = load_yaml_models(&capabilities_dir)?;
+
+    let catalog_path = output_dir.join("capabilities.generated.yaml");
+    let content = serde_yaml::to_string(&capabilities)
+        .with_context(|| "Failed to serialize capabilities catalog")?;
+
+    fs::write(&catalog_path, content)
+        .with_context(|| format!("Failed to write: {}", catalog_path.display()))?;
+
+    info!("  ✓ {} capabilities cataloged", capabilities.len());
     Ok(())
 }
 

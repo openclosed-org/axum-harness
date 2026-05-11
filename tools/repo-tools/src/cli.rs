@@ -58,6 +58,7 @@ enum Commands {
     PlatformServices,
     PlatformDeployables,
     PlatformResources,
+    PlatformCapabilities,
     CleanSdk,
     Dev(DevArgs),
     Apps(AppsArgs),
@@ -384,7 +385,7 @@ pub(crate) struct SecretsArgs {
 pub(crate) enum SecretsCommand {
     DecryptEnv(SecretsDecryptEnvArgs),
     ExportEnv(SecretsExportEnvArgs),
-    VerifyCounterSharedDb(SecretsEnvArgs),
+    VerifyCounterDbCredentials(SecretsEnvArgs),
     Run(SecretsRunArgs),
     Reconcile(SecretsReconcileArgs),
     Encrypt(SecretsEncryptArgs),
@@ -403,6 +404,35 @@ pub(crate) enum SecretsExportProfile {
     #[value(name = "systemd-binary")]
     SystemdBinary,
     Podman,
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq, ValueEnum)]
+pub(crate) enum DatabaseCapabilityState {
+    Disabled,
+    #[value(name = "local_mock")]
+    LocalMock,
+    #[value(name = "local_real")]
+    LocalReal,
+    #[value(name = "external_single_node")]
+    ExternalSingleNode,
+    #[value(name = "external_distributed")]
+    ExternalDistributed,
+}
+
+impl DatabaseCapabilityState {
+    pub(crate) fn label(self) -> &'static str {
+        match self {
+            Self::Disabled => "disabled",
+            Self::LocalMock => "local_mock",
+            Self::LocalReal => "local_real",
+            Self::ExternalSingleNode => "external_single_node",
+            Self::ExternalDistributed => "external_distributed",
+        }
+    }
+
+    pub(crate) fn include_counter_db_credentials(self) -> bool {
+        matches!(self, Self::ExternalSingleNode | Self::ExternalDistributed)
+    }
 }
 
 impl SecretsExportProfile {
@@ -438,6 +468,8 @@ pub(crate) struct SecretsRunArgs {
     pub(crate) deployable: String,
     #[arg(long, default_value = "dev")]
     pub(crate) env: String,
+    #[arg(long, value_enum, default_value = "local_real")]
+    pub(crate) db_state: DatabaseCapabilityState,
     #[arg(last = true)]
     pub(crate) cmd: Vec<String>,
 }
@@ -847,6 +879,9 @@ pub(crate) fn run() -> Result<()> {
         Commands::PlatformServices => commands::platform::list_platform_inventory("services"),
         Commands::PlatformDeployables => commands::platform::list_platform_inventory("deployables"),
         Commands::PlatformResources => commands::platform::list_platform_inventory("resources"),
+        Commands::PlatformCapabilities => {
+            commands::platform::list_platform_inventory("capabilities")
+        }
         Commands::CleanSdk => commands::platform::clean_sdk(),
         Commands::Dev(args) => commands::devx::run_dev(args),
         Commands::Apps(args) => commands::apps::run(args),

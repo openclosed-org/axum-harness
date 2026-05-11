@@ -1,0 +1,64 @@
+key: authz
+kind: infrastructure_capability
+description: >
+  Authorization capability for relationship and permission checks. Application
+  code depends on AuthzPort instead of a concrete policy-plane provider.
+
+states:
+  disabled:
+    supported: false
+    reason: tenant-scoped mutations require authorization checks.
+    evidence: declared
+
+  local_mock:
+    supported: true
+    default_provider: authz.in-memory-tuples
+    semantic_limits:
+      - direct tuple matching only
+      - dev convenience allow-all mode is not production safe
+    evidence: tested
+
+  local_real:
+    supported: true
+    default_provider: authz.in-memory-tuples
+    semantic_limits:
+      - process-local tuple store only
+      - suitable for tests and local development, not independent replicas
+    evidence: tested
+
+  external_single_node:
+    supported: true
+    default_provider: authz.openfga
+    semantic_limits:
+      - single external policy-plane endpoint
+      - production runtime guard requires an authz endpoint
+    evidence: checked
+
+  external_distributed:
+    supported: false
+    reason: HA policy-plane topology and consistency semantics are not gated yet.
+    evidence: declared
+
+providers:
+  - key: authz.in-memory-tuples
+    technology: in-memory-tuples
+    ownership: repository-local
+    notes: MockAuthzAdapter for dev/test relationship checks.
+
+  - key: authz.openfga
+    technology: openfga
+    ownership: optional-resource-container-or-managed
+    notes: OpenFGA-compatible authorization adapter.
+
+adapters:
+  - key: authz.mock-adapter
+    path: packages/authz
+    notes: In-memory AuthzPort adapter.
+
+  - key: authz.openfga-adapter
+    path: packages/authz
+    notes: OpenFGA AuthzPort adapter.
+
+resource_entities:
+  - key: authz-policy-store
+    purpose: Authorization relationship and policy data used by protected operations.

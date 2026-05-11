@@ -1,0 +1,52 @@
+key: discord_bot
+kind: integration_capability
+description: >
+  Discord channel capability. Discord interactions and gateway events must stay
+  as channel adapters and must not own business rules.
+
+states:
+  disabled:
+    supported: true
+    default_provider: discord_bot.disabled
+    reason: Discord channel is optional.
+    evidence: declared
+
+  local_mock:
+    supported: false
+    reason: command fixture adapter is not implemented yet.
+    evidence: declared
+
+  local_real:
+    supported: false
+    reason: local interaction adapter is not implemented yet.
+    evidence: declared
+
+  external_single_node:
+    supported: false
+    reason: Discord interactions or gateway adapter is not implemented yet.
+    evidence: declared
+
+  external_distributed:
+    supported: false
+    reason: distributed gateway workers and dedupe semantics are not implemented yet.
+    evidence: declared
+
+providers:
+  - key: discord_bot.disabled
+    technology: none
+    ownership: repository-local
+    notes: No Discord bot channel.
+
+  - key: discord_bot.discord-api
+    technology: discord-api
+    ownership: managed-provider
+    notes: Planned Discord API adapter lane.
+
+adapters:
+  - key: discord_bot.noop-adapter
+    path: workers/discord-bot
+    notes: Planned bot worker/channel adapter boundary.
+
+resource_entities:
+  - key: discord-channel
+    purpose: Planned Discord command and interaction channel identity.

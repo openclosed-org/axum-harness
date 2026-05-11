@@ -138,6 +138,155 @@ resources:
       lite_backend: "journald"
       preset: "full"
 
+capability_bindings:
+  database:
+    state: external_single_node
+    provider: database.turso-cloud
+    resource: counter-db
+    adapter: database.libsql-remote-adapter
+    secret_binding: counter-db-credentials
+    semantic_limits:
+      - external managed libSQL-compatible DB; repository does not claim distributed DB behavior yet
+      - use local_real with database.embedded-libsql for embedded single-host file storage
+    evidence: checked
+
+  cache:
+    state: local_real
+    provider: cache.moka
+    resource: web-bff-cache
+    adapter: cache.moka-adapter
+    semantic_limits:
+      - lite preset uses process-local cache; Valkey remains optional for standard/full presets
+    evidence: declared
+
+  eventing:
+    state: local_real
+    provider: eventing.db-outbox
+    resource: outbox-relay
+    adapter: eventing.outbox-publisher-adapter
+    semantic_limits:
+      - DB outbox remains durable source; NATS is optional for standard/full presets
+    evidence: checked
+
+  authn:
+    state: local_real
+    provider: authn.jwt-hs256
+    resource: request-identity
+    adapter: authn.bff-middleware-adapter
+    semantic_limits:
+      - production requires OIDC issuer or non-default JWT secret
+    evidence: checked
+
+  authz:
+    state: external_single_node
+    provider: authz.openfga
+    resource: authz-policy-store
+    adapter: authz.openfga-adapter
+    semantic_limits:
+      - production runtime guard requires APP_AUTHZ_ENDPOINT
+    evidence: checked
+
+  observability:
+    state: local_real
+    provider: observability.tracing-stdout
+    resource: telemetry-stream
+    adapter: observability.tracing-adapter
+    semantic_limits:
+      - stdout/journald baseline; external collector optional in full preset
+    evidence: checked
+
+  billing:
+    state: external_single_node
+    provider: billing.creem
+    resource: billing-account
+    adapter: billing.creem-bff-adapter
+    secret_binding: web-bff
+    provider_environment: test
+    semantic_limits:
+      - Creem checkout API key/product path is partially checked
+      - public webhook delivery is not proven until accepted HTTPS ingress is configured
+    evidence: tested
+
+  entitlement:
+    state: external_single_node
+    provider: entitlement.billing-webhook-projection
+    resource: tenant-entitlement
+    adapter: entitlement.libsql-adapter
+    semantic_limits:
+      - local DB projection is authoritative for decisions; provider events feed projection
+    evidence: tested
+
+  usage_metering:
+    state: local_real
+    provider: usage_metering.libsql-ledger
+    resource: usage-ledger
+    adapter: usage_metering.libsql-adapter
+    semantic_limits:
+      - usage events are locally recorded; provider metering export is not implemented
+    evidence: tested
+
+  quota_credits:
+    state: local_real
+    provider: quota_credits.libsql-ledger
+    resource: quota-ledger
+    adapter: quota_credits.libsql-adapter
+    semantic_limits:
+      - durable quota ledger; cache must not be the source of truth
+    evidence: tested
+
+  audit_log:
+    state: local_real
+    provider: audit_log.libsql-ledger
+    resource: audit-event-log
+    adapter: audit_log.libsql-adapter
+    semantic_limits:
+      - durable audit table; SIEM/export not implemented
+    evidence: tested
+
+  notification:
+    state: disabled
+    provider: notification.disabled
+    resource: notification-outbox
+    semantic_limits:
+      - notification outbox and delivery worker are not implemented yet
+    evidence: declared
+
+  inbound_webhooks:
+    state: external_single_node
+    provider: inbound_webhooks.creem-billing
+    resource: inbound-webhook-ledger
+    adapter: inbound_webhooks.creem-bff-adapter
+    secret_binding: web-bff
+    provider_environment: test
+    semantic_limits:
+      - signed Creem webhook handler is tested with synthetic payloads
+      - real public Creem delivery is not yet proven
+    evidence: tested
+
+  outbound_webhooks:
+    state: disabled
+    provider: outbound_webhooks.disabled
+    resource: outbound-webhook-delivery
+    semantic_limits:
+      - outbound webhook delivery is not implemented yet
+    evidence: declared
+
+  telegram_bot:
+    state: disabled
+    provider: telegram_bot.disabled
+    resource: telegram-channel
+    semantic_limits:
+      - Telegram channel adapter is not implemented yet
+    evidence: declared
+
+  discord_bot:
+    state: disabled
+    provider: discord_bot.disabled
+    resource: discord-channel
+    semantic_limits:
+      - Discord channel adapter is not implemented yet
+    evidence: declared
+
 network:
   gateway: "0.0.0.0"
   exposed_ports:

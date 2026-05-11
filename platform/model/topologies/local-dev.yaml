@@ -53,6 +53,142 @@ resources:
   - name: observability
     enabled: false
 
+capability_bindings:
+  database:
+    state: local_real
+    provider: database.embedded-libsql
+    resource: counter-db
+    adapter: database.libsql-local-adapter
+    semantic_limits:
+      - local durable embedded DB path; not a shared DB for independently running worker replicas
+    evidence: checked
+
+  cache:
+    state: local_real
+    provider: cache.moka
+    resource: web-bff-cache
+    adapter: cache.moka-adapter
+    semantic_limits:
+      - process-local cache only; disposable acceleration, not source-of-truth state
+    evidence: declared
+
+  eventing:
+    state: local_real
+    provider: eventing.db-outbox
+    resource: outbox-relay
+    adapter: eventing.outbox-publisher-adapter
+    semantic_limits:
+      - durable DB outbox and polling/replay path; live broker disabled by default
+    evidence: checked
+
+  authn:
+    state: local_mock
+    provider: authn.dev-headers
+    resource: request-identity
+    adapter: authn.bff-middleware-adapter
+    semantic_limits:
+      - dev header identity injection is for local development and tests only
+    evidence: tested
+
+  authz:
+    state: local_mock
+    provider: authz.in-memory-tuples
+    resource: authz-policy-store
+    adapter: authz.mock-adapter
+    semantic_limits:
+      - process-local direct tuple matching only
+    evidence: tested
+
+  observability:
+    state: local_real
+    provider: observability.tracing-stdout
+    resource: telemetry-stream
+    adapter: observability.tracing-adapter
+    semantic_limits:
+      - stdout/tracing only; no external collector required
+    evidence: checked
+
+  billing:
+    state: disabled
+    provider: billing.disabled
+    resource: billing-account
+    semantic_limits:
+      - no checkout provider integration in default local topology
+    evidence: tested
+
+  entitlement:
+    state: disabled
+    provider: entitlement.disabled
+    resource: tenant-entitlement
+    semantic_limits:
+      - commercial guard disabled by default
+    evidence: tested
+
+  usage_metering:
+    state: disabled
+    provider: usage_metering.disabled
+    resource: usage-ledger
+    semantic_limits:
+      - no usage event recording when commercial mode is disabled
+    evidence: tested
+
+  quota_credits:
+    state: disabled
+    provider: quota_credits.disabled
+    resource: quota-ledger
+    semantic_limits:
+      - no quota enforcement when commercial mode is disabled
+    evidence: tested
+
+  audit_log:
+    state: local_real
+    provider: audit_log.libsql-ledger
+    resource: audit-event-log
+    adapter: audit_log.libsql-adapter
+    semantic_limits:
+      - durable local DB audit table plus test-readable in-memory mirror
+    evidence: tested
+
+  notification:
+    state: disabled
+    provider: notification.disabled
+    resource: notification-outbox
+    semantic_limits:
+      - notification outbox and delivery worker are not implemented yet
+    evidence: declared
+
+  inbound_webhooks:
+    state: disabled
+    provider: inbound_webhooks.disabled
+    resource: inbound-webhook-ledger
+    semantic_limits:
+      - generic inbound webhook registry disabled; billing webhook has its own provider route when billing is enabled
+    evidence: declared
+
+  outbound_webhooks:
+    state: disabled
+    provider: outbound_webhooks.disabled
+    resource: outbound-webhook-delivery
+    semantic_limits:
+      - outbound webhook delivery is not implemented yet
+    evidence: declared
+
+  telegram_bot:
+    state: disabled
+    provider: telegram_bot.disabled
+    resource: telegram-channel
+    semantic_limits:
+      - Telegram channel adapter is not implemented yet
+    evidence: declared
+
+  discord_bot:
+    state: disabled
+    provider: discord_bot.disabled
+    resource: discord-channel
+    semantic_limits:
+      - Discord channel adapter is not implemented yet
+    evidence: declared
+
 network:
   gateway: "localhost:8080"
   exposed_ports:

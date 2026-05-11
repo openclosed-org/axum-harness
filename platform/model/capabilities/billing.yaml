@@ -1,0 +1,58 @@
+key: billing
+kind: commercial_capability
+description: >
+  Billing provider capability for checkout, signed provider webhooks, and local
+  entitlement projection. Business code must not call provider APIs directly.
+
+states:
+  disabled:
+    supported: true
+    default_provider: billing.disabled
+    reason: paid product flows are optional for the backend reference chain.
+    evidence: tested
+
+  local_mock:
+    supported: false
+    reason: checkout provider mocking is not implemented; use commercial local_mock for entitlement/quota seams.
+    evidence: declared
+
+  local_real:
+    supported: false
+    reason: real payment networks are external; local_real only covers downstream ledgers and projections.
+    evidence: declared
+
+  external_single_node:
+    supported: true
+    default_provider: billing.creem
+    semantic_limits:
+      - provider checkout API connectivity is partially checked
+      - real provider webhook delivery through public ingress is not yet proven
+    evidence: tested
+
+  external_distributed:
+    supported: false
+    reason: clustered webhook workers, reconciliation, and provider replay gates are not implemented yet.
+    evidence: declared
+
+providers:
+  - key: billing.disabled
+    technology: none
+    ownership: repository-local
+    notes: No billing provider integration.
+
+  - key: billing.creem
+    technology: creem
+    ownership: managed-provider
+    notes: Reference billing provider adapter for checkout and signed webhook projection.
+
+adapters:
+  - key: billing.creem-bff-adapter
+    path: servers/bff/web-bff/src/billing.rs
+    notes: BFF-local Creem checkout and webhook adapter.
+
+resource_entities:
+  - key: billing-account
+    purpose: Provider account and product mapping boundary.
+
+  - key: billing-webhook-ledger
+    purpose: Durable idempotency ledger for provider webhook events.

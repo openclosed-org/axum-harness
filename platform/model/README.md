@@ -18,9 +18,10 @@
 1. 系统有哪些平台级 service 元数据？
 2. 哪些 deployable 存在？它们是 stateless 还是 checkpointed / stateful？
 3. 哪些 workflow 是平台级长事务？
-4. 哪些 topology 被支持？
-5. 有哪些全局 owner / consistency / idempotency 默认规则？
-6. failure domain 与基础 SLO 基线是什么？
+4. 哪些 cross-cutting capability 存在、支持哪些五态、有哪些 provider/adapter/resource entity？
+5. 哪些 topology 被支持？
+6. 有哪些全局 owner / consistency / idempotency 默认规则？
+7. failure domain 与基础 SLO 基线是什么？
 
 它不负责：
 
@@ -67,6 +68,7 @@ platform/model/
 ├── services/                  # 平台级 service 元数据
 ├── deployables/               # 可部署单元定义
 ├── resources/                 # 外部资源定义
+├── capabilities/              # 横切能力五态、provider、adapter、resource entity 声明
 ├── workflows/                 # 长事务 / durable workflow 定义
 ├── policies/                  # 平台策略定义
 ├── topologies/                # 承载组合定义
@@ -123,6 +125,18 @@ platform/model/
 ### 3.4 `state/`
 
 只保留平台级全局规则，不存放每个 service 的局部语义文件。
+
+### 3.5 `capabilities/`
+
+Capability model 使用 ECS 命名规则：entity name 保持稳定，state/provider/adapter/resource binding 分开表达。正式规则见 `docs/architecture/capability-naming.md`。
+
+至少声明：
+
+1. `key`：能力键，例如 `database`。
+2. `states`：固定五态 `disabled|local_mock|local_real|external_single_node|external_distributed`。
+3. `providers`：必须用 `<capability>.<provider>` 形式，例如 `database.turso-cloud`。
+4. `adapters`：必须用 `<capability>.<adapter>` 形式。
+5. `resource_entities`：稳定逻辑资源名，例如 `counter-db`，不能编码 `shared`、`local`、`external` 等状态/拓扑词。
 
 ---
 

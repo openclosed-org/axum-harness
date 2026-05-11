@@ -164,3 +164,7 @@ platform-deployables:
 # List all resources defined in platform model
 platform-resources:
     cargo run -p repo-tools -- platform-resources
+
+# List all capabilities defined in platform model
+platform-capabilities:
+    cargo run -p repo-tools -- platform-capabilities

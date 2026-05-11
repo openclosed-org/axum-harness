@@ -1,0 +1,76 @@
+key: entitlement
+kind: commercial_capability
+description: >
+  Entitlement decision capability for paid or gated features. Decisions are made
+  from local projections or static local policy, never live provider reads in
+  business code.
+
+states:
+  disabled:
+    supported: true
+    default_provider: entitlement.disabled
+    reason: paid feature gates can be disabled for the reference chain.
+    evidence: tested
+
+  local_mock:
+    supported: true
+    default_provider: entitlement.static-allow-list
+    semantic_limits:
+      - development and tests only
+      - production runtime guard rejects commercial local_mock
+    evidence: tested
+
+  local_real:
+    supported: true
+    default_provider: entitlement.libsql-projection
+    semantic_limits:
+      - local durable projection is authoritative for decisions
+      - provider reconciliation is not yet complete
+    evidence: tested
+
+  external_single_node:
+    supported: true
+    default_provider: entitlement.billing-webhook-projection
+    semantic_limits:
+      - fed by provider webhook projection into local storage
+      - real provider webhook ingress remains unproven until Creem public URL is accepted
+    evidence: tested
+
+  external_distributed:
+    supported: false
+    reason: distributed entitlement projection and replay workers are not implemented yet.
+    evidence: declared
+
+providers:
+  - key: entitlement.disabled
+    technology: none
+    ownership: repository-local
+    notes: Entitlement guard disabled.
+
+  - key: entitlement.static-allow-list
+    technology: static-config
+    ownership: repository-local
+    notes: Static capability allow-list used by local_mock.
+
+  - key: entitlement.libsql-projection
+    technology: libsql
+    ownership: repository-local
+    notes: Durable local entitlement projection.
+
+  - key: entitlement.billing-webhook-projection
+    technology: provider-webhook-projection
+    ownership: repository-local
+    notes: Local entitlement projection updated from signed billing webhooks.
+
+adapters:
+  - key: entitlement.static-adapter
+    path: packages/commercial
+    notes: Static entitlement resolver.
+
+  - key: entitlement.libsql-adapter
+    path: servers/bff/web-bff/src/commercial.rs
+    notes: BFF-local durable entitlement resolver and projection.
+
+resource_entities:
+  - key: tenant-entitlement
+    purpose: Tenant and subject entitlement projection for gated capabilities.

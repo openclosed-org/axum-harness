@@ -1,0 +1,83 @@
+key: database
+kind: infrastructure_capability
+description: >
+  Durable application storage capability for the backend reference chain. The
+  capability key is database; provider keys are capability-prefixed so embedded
+  libSQL, SQLite files, Turso Cloud, and SurrealDB do not become resource names
+  or runtime states.
+
+states:
+  disabled:
+    supported: false
+    reason: web-bff/counter reference chain requires durable storage.
+    evidence: declared
+
+  local_mock:
+    supported: false
+    reason: database mock would violate persistence, replay, and migration expectations.
+    evidence: declared
+
+  local_real:
+    supported: true
+    default_provider: database.embedded-libsql
+    semantic_limits:
+      - local durable storage only; not a shared DB for independent worker replicas unless explicitly configured
+      - process and host placement decide file durability and access semantics
+    evidence: checked
+
+  external_single_node:
+    supported: true
+    default_provider: database.turso-cloud
+    semantic_limits:
+      - external service availability and durability are provider-dependent
+      - repository does not claim distributed behavior from provider marketing alone
+    evidence: checked
+
+  external_distributed:
+    supported: false
+    reason: repository-level distributed DB behavior does not yet have validator, replay, or operational evidence.
+    evidence: declared
+
+providers:
+  - key: database.embedded-libsql
+    technology: libsql
+    ownership: repository-local
+    notes: Embedded local durable database path used by default local_real inner loops.
+
+  - key: database.sqlite-file
+    technology: sqlite
+    ownership: repository-local
+    notes: SQLite-compatible local file lane for low-resource and test paths.
+
+  - key: database.turso-cloud
+    technology: turso/libsql
+    ownership: managed-provider
+    notes: Optional managed external DB path for external_single_node semantics until repository evidence proves stronger claims.
+
+  - key: database.surrealdb
+    technology: surrealdb
+    ownership: optional-resource-container-or-managed
+    notes: Optional database provider lane; not the default backend reference DB.
+
+adapters:
+  - key: database.libsql-local-adapter
+    path: packages/data-adapters/turso
+    notes: Local libSQL/SQLite-compatible adapter path.
+
+  - key: database.libsql-remote-adapter
+    path: packages/data-adapters/turso
+    notes: Remote libSQL/Turso-compatible adapter path.
+
+  - key: database.surrealdb-adapter
+    path: packages/data-adapters/surrealdb
+    notes: Optional SurrealDB adapter lane.
+
+resource_entities:
+  - key: counter-db
+    purpose: Durable write model and backend reference-chain state.
+
+  - key: counter-outbox
+    purpose: Durable event handoff and relay source for the counter reference chain.
+
+  - key: counter-read-model
+    purpose: Rebuildable projection/read-model state for projector verification.

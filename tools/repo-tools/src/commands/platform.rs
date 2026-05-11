@@ -98,6 +98,7 @@ pub(crate) fn list_platform_inventory(kind: &str) -> Result<()> {
         "services" => "Services defined in platform model",
         "deployables" => "Deployables defined in platform model",
         "resources" => "Resources defined in platform model",
+        "capabilities" => "Capabilities defined in platform model",
         _ => "Entries defined in platform model",
     };
     println!("{title}:");
@@ -414,7 +415,7 @@ pub(crate) fn verify_counter_delivery(mode: Mode) -> Result<()> {
     );
     let mut failures = Vec::new();
     for relative_path in [
-        "infra/security/sops/dev/counter-shared-db.enc.yaml",
+        "infra/security/sops/dev/counter-db-credentials.enc.yaml",
         "infra/k3s/overlays/dev/outbox-relay-worker/kustomization.yaml",
         "infra/k3s/overlays/dev/projector-worker/kustomization.yaml",
         "infra/k3s/overlays/staging/outbox-relay-worker/kustomization.yaml",
@@ -441,13 +442,13 @@ pub(crate) fn verify_counter_delivery(mode: Mode) -> Result<()> {
     for (relative_path, pattern, reason) in [
         (
             "infra/k3s/overlays/dev/outbox-relay-worker/kustomization.yaml",
-            r"counter-shared-db-secrets",
-            "outbox relay overlay must consume counter shared DB secret",
+            r"counter-db-credentials",
+            "outbox relay overlay must consume counter DB credentials secret",
         ),
         (
             "infra/k3s/overlays/dev/projector-worker/kustomization.yaml",
-            r"counter-shared-db-secrets",
-            "projector overlay must consume counter shared DB secret",
+            r"counter-db-credentials",
+            "projector overlay must consume counter DB credentials secret",
         ),
         (
             "infra/k3s/overlays/dev/outbox-relay-worker/kustomization.yaml",
@@ -486,7 +487,7 @@ pub(crate) fn verify_counter_delivery(mode: Mode) -> Result<()> {
         ),
         (
             "infra/k3s/overlays/staging/outbox-relay-worker/kustomization.yaml",
-            r"counter-shared-db-staging",
+            r"counter-db-credentials-staging",
             "staging outbox relay overlay must reference staging counter DB secret",
         ),
         (
@@ -496,8 +497,8 @@ pub(crate) fn verify_counter_delivery(mode: Mode) -> Result<()> {
         ),
         (
             "ops/runbooks/counter-delivery.md",
-            r"just verify-counter-delivery strict|counter-shared-db",
-            "counter delivery runbook must document executable admission and shared DB checks",
+            r"just verify-counter-delivery strict|counter-db-credentials",
+            "counter delivery runbook must document executable admission and counter DB credentials checks",
         ),
         (
             "platform/model/state/ownership-map.yaml",
@@ -534,9 +535,9 @@ pub(crate) fn verify_counter_delivery(mode: Mode) -> Result<()> {
             failures.push(format!("{relative_path}: {reason}"));
         }
     }
-    if let Err(error) = secrets::verify_counter_shared_db("dev") {
+    if let Err(error) = secrets::verify_counter_db_credentials("dev") {
         failures.push(format!(
-            "counter shared DB secret verification failed: {error}"
+            "counter DB credentials secret verification failed: {error}"
         ));
     }
     operation.phase(OperationPhase::Verify, "delivery evidence checks finished");

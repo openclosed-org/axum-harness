@@ -1,0 +1,53 @@
+key: notification
+kind: growth_capability
+description: >
+  Notification capability for outbound user communication. Runtime delivery
+  should go through ports and workers rather than direct provider SDK calls from
+  business services.
+
+states:
+  disabled:
+    supported: true
+    default_provider: notification.disabled
+    reason: notifications are optional for the backend reference chain.
+    evidence: declared
+
+  local_mock:
+    supported: false
+    reason: notification test double and delivery outbox are not implemented yet.
+    evidence: declared
+
+  local_real:
+    supported: false
+    reason: local notification outbox and delivery worker are not implemented yet.
+    evidence: declared
+
+  external_single_node:
+    supported: false
+    reason: email/push provider adapters are not implemented yet.
+    evidence: declared
+
+  external_distributed:
+    supported: false
+    reason: distributed notification workers, retries, and dead-letter paths are not implemented yet.
+    evidence: declared
+
+providers:
+  - key: notification.disabled
+    technology: none
+    ownership: repository-local
+    notes: No notification delivery.
+
+  - key: notification.smtp
+    technology: smtp
+    ownership: external-provider-or-resource-container
+    notes: Planned transactional email provider lane.
+
+adapters:
+  - key: notification.noop-adapter
+    path: packages/notification
+    notes: Planned no-op notification port implementation.
+
+resource_entities:
+  - key: notification-outbox
+    purpose: Planned durable notification delivery queue.

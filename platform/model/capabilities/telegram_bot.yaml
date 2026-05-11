@@ -1,0 +1,53 @@
+key: telegram_bot
+kind: integration_capability
+description: >
+  Telegram channel capability. Bot commands must route through existing use
+  cases and preserve authz, entitlement, quota, tenant, audit, and abuse
+  boundaries.
+
+states:
+  disabled:
+    supported: true
+    default_provider: telegram_bot.disabled
+    reason: Telegram channel is optional.
+    evidence: declared
+
+  local_mock:
+    supported: false
+    reason: command fixture adapter is not implemented yet.
+    evidence: declared
+
+  local_real:
+    supported: false
+    reason: local polling adapter is not implemented yet.
+    evidence: declared
+
+  external_single_node:
+    supported: false
+    reason: Telegram polling or webhook adapter is not implemented yet.
+    evidence: declared
+
+  external_distributed:
+    supported: false
+    reason: distributed bot workers and dedupe semantics are not implemented yet.
+    evidence: declared
+
+providers:
+  - key: telegram_bot.disabled
+    technology: none
+    ownership: repository-local
+    notes: No Telegram bot channel.
+
+  - key: telegram_bot.telegram-api
+    technology: telegram-bot-api
+    ownership: managed-provider
+    notes: Planned Telegram Bot API adapter lane.
+
+adapters:
+  - key: telegram_bot.noop-adapter
+    path: workers/telegram-bot
+    notes: Planned bot worker/channel adapter boundary.
+
+resource_entities:
+  - key: telegram-channel
+    purpose: Planned Telegram command and event channel identity.

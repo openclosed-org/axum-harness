@@ -56,6 +56,153 @@ resources:
   - name: observability
     enabled: true
 
+capability_bindings:
+  database:
+    state: external_single_node
+    provider: database.turso-cloud
+    resource: counter-db
+    adapter: database.libsql-remote-adapter
+    secret_binding: counter-db-credentials
+    semantic_limits:
+      - external managed libSQL-compatible DB; staging topology does not by itself prove external_distributed semantics
+    evidence: checked
+
+  cache:
+    state: external_single_node
+    provider: cache.dragonfly
+    resource: web-bff-cache
+    adapter: cache.redis-compatible-adapter
+    semantic_limits:
+      - Redis-compatible cache is not a durable ledger
+    evidence: declared
+
+  eventing:
+    state: external_single_node
+    provider: eventing.nats-jetstream
+    resource: event-bus
+    adapter: eventing.nats-bus-adapter
+    semantic_limits:
+      - NATS is a live eventing lane; outbox remains replay source
+    evidence: declared
+
+  authn:
+    state: external_single_node
+    provider: authn.oidc
+    resource: request-identity
+    adapter: authn.oidc-verifier-adapter
+    semantic_limits:
+      - external identity provider availability is not proven by topology metadata
+    evidence: checked
+
+  authz:
+    state: external_single_node
+    provider: authz.openfga
+    resource: authz-policy-store
+    adapter: authz.openfga-adapter
+    semantic_limits:
+      - external policy-plane endpoint is required for production-like authz
+    evidence: checked
+
+  observability:
+    state: external_single_node
+    provider: observability.otel-collector
+    resource: telemetry-stream
+    adapter: observability.otel-adapter
+    semantic_limits:
+      - collector/storage retention is not proven by topology metadata
+    evidence: declared
+
+  billing:
+    state: external_single_node
+    provider: billing.creem
+    resource: billing-account
+    adapter: billing.creem-bff-adapter
+    secret_binding: web-bff
+    provider_environment: test
+    semantic_limits:
+      - Creem route shape is tested; public staging webhook delivery remains operational evidence
+    evidence: tested
+
+  entitlement:
+    state: external_single_node
+    provider: entitlement.billing-webhook-projection
+    resource: tenant-entitlement
+    adapter: entitlement.libsql-adapter
+    semantic_limits:
+      - local projection remains the entitlement decision source
+    evidence: tested
+
+  usage_metering:
+    state: local_real
+    provider: usage_metering.libsql-ledger
+    resource: usage-ledger
+    adapter: usage_metering.libsql-adapter
+    semantic_limits:
+      - usage events remain in DB ledger; provider-side metering export is not implemented
+    evidence: tested
+
+  quota_credits:
+    state: local_real
+    provider: quota_credits.libsql-ledger
+    resource: quota-ledger
+    adapter: quota_credits.libsql-adapter
+    semantic_limits:
+      - quota decisions use durable ledger; cache can only accelerate
+    evidence: tested
+
+  audit_log:
+    state: local_real
+    provider: audit_log.libsql-ledger
+    resource: audit-event-log
+    adapter: audit_log.libsql-adapter
+    semantic_limits:
+      - durable DB audit log; export/retention policy not implemented
+    evidence: tested
+
+  notification:
+    state: disabled
+    provider: notification.disabled
+    resource: notification-outbox
+    semantic_limits:
+      - notification outbox and delivery worker are not implemented yet
+    evidence: declared
+
+  inbound_webhooks:
+    state: external_single_node
+    provider: inbound_webhooks.creem-billing
+    resource: inbound-webhook-ledger
+    adapter: inbound_webhooks.creem-bff-adapter
+    secret_binding: web-bff
+    provider_environment: test
+    semantic_limits:
+      - signed Creem webhook handler is tested with synthetic payloads
+      - real public Creem delivery is not yet proven
+    evidence: tested
+
+  outbound_webhooks:
+    state: disabled
+    provider: outbound_webhooks.disabled
+    resource: outbound-webhook-delivery
+    semantic_limits:
+      - outbound webhook delivery is not implemented yet
+    evidence: declared
+
+  telegram_bot:
+    state: disabled
+    provider: telegram_bot.disabled
+    resource: telegram-channel
+    semantic_limits:
+      - Telegram channel adapter is not implemented yet
+    evidence: declared
+
+  discord_bot:
+    state: disabled
+    provider: discord_bot.disabled
+    resource: discord-channel
+    semantic_limits:
+      - Discord channel adapter is not implemented yet
+    evidence: declared
+
 network:
   gateway: "cilium-gateway"
   exposed_ports:

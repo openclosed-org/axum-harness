@@ -1,0 +1,66 @@
+key: cache
+kind: infrastructure_capability
+description: >
+  Cache capability for hot-path acceleration. Cache state must not become the
+  source of truth for quota, entitlement, or business invariants.
+
+states:
+  disabled:
+    supported: true
+    reason: backend reference chain can run without a cache accelerator.
+    evidence: declared
+
+  local_mock:
+    supported: false
+    reason: cache semantics are simple enough to use disabled or local_real instead of a mock cache.
+    evidence: declared
+
+  local_real:
+    supported: true
+    default_provider: cache.moka
+    semantic_limits:
+      - process-local cache only; no cross-process coherence
+      - cache entries must be disposable and rebuildable from durable state
+    evidence: declared
+
+  external_single_node:
+    supported: true
+    default_provider: cache.valkey
+    semantic_limits:
+      - single external cache node; not a durable ledger
+      - outages must degrade to durable source-of-truth paths where supported
+    evidence: declared
+
+  external_distributed:
+    supported: false
+    reason: clustered cache behavior has no repository validator or smoke evidence yet.
+    evidence: declared
+
+providers:
+  - key: cache.moka
+    technology: moka
+    ownership: repository-local
+    notes: In-process cache for local and low-resource profiles.
+
+  - key: cache.valkey
+    technology: valkey
+    ownership: optional-resource-container-or-managed
+    notes: Optional external cache provider for single-node profiles.
+
+  - key: cache.dragonfly
+    technology: dragonfly
+    ownership: optional-resource-container-or-managed
+    notes: Optional Redis-compatible cache lane for staging or larger profiles.
+
+adapters:
+  - key: cache.moka-adapter
+    path: packages/cache
+    notes: Planned in-process cache adapter boundary.
+
+  - key: cache.redis-compatible-adapter
+    path: packages/cache
+    notes: Planned Valkey/Dragonfly-compatible adapter boundary.
+
+resource_entities:
+  - key: web-bff-cache
+    purpose: Disposable acceleration cache for BFF hot paths.

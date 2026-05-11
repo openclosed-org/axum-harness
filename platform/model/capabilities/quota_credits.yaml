@@ -1,0 +1,70 @@
+key: quota_credits
+kind: commercial_capability
+description: >
+  Quota and credit ledger capability. Cache can accelerate quota reads, but the
+  ledger itself must remain durable when commercial mode is real.
+
+states:
+  disabled:
+    supported: true
+    default_provider: quota_credits.disabled
+    reason: quota enforcement is optional when commercial mode is disabled.
+    evidence: tested
+
+  local_mock:
+    supported: true
+    default_provider: quota_credits.in-memory-ledger
+    semantic_limits:
+      - process-local reserve/commit/release semantics
+      - development and tests only
+    evidence: tested
+
+  local_real:
+    supported: true
+    default_provider: quota_credits.libsql-ledger
+    semantic_limits:
+      - durable reservation ledger in local DB
+      - no cross-region quota semantics
+    evidence: tested
+
+  external_single_node:
+    supported: true
+    default_provider: quota_credits.libsql-ledger
+    semantic_limits:
+      - shared external DB can coordinate independent single-node deployables
+      - cache is not a ledger source of truth
+    evidence: tested
+
+  external_distributed:
+    supported: false
+    reason: distributed quota coordination and reconciliation are not implemented yet.
+    evidence: declared
+
+providers:
+  - key: quota_credits.disabled
+    technology: none
+    ownership: repository-local
+    notes: Quota enforcement disabled.
+
+  - key: quota_credits.in-memory-ledger
+    technology: in-memory
+    ownership: repository-local
+    notes: In-memory quota ledger for local_mock.
+
+  - key: quota_credits.libsql-ledger
+    technology: libsql
+    ownership: repository-local
+    notes: Durable quota reservation and usage ledger.
+
+adapters:
+  - key: quota_credits.memory-adapter
+    path: packages/commercial
+    notes: In-memory QuotaLedger implementation.
+
+  - key: quota_credits.libsql-adapter
+    path: servers/bff/web-bff/src/commercial.rs
+    notes: BFF-local durable QuotaLedger implementation.
+
+resource_entities:
+  - key: quota-ledger
+    purpose: Durable quota reservation and commit ledger.

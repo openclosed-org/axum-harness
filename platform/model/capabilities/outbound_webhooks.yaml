@@ -1,0 +1,47 @@
+key: outbound_webhooks
+kind: integration_capability
+description: >
+  Outbound webhook capability for product integrations. Delivery must eventually
+  use a durable registry, signing, retries, and a dead-letter path.
+
+states:
+  disabled:
+    supported: true
+    default_provider: outbound_webhooks.disabled
+    reason: outbound product webhooks are optional.
+    evidence: declared
+
+  local_mock:
+    supported: false
+    reason: local webhook delivery fake is not implemented yet.
+    evidence: declared
+
+  local_real:
+    supported: false
+    reason: local registry, signer, retry, and dead-letter path are not implemented yet.
+    evidence: declared
+
+  external_single_node:
+    supported: false
+    reason: external delivery worker is not implemented yet.
+    evidence: declared
+
+  external_distributed:
+    supported: false
+    reason: distributed delivery workers and replay gates are not implemented yet.
+    evidence: declared
+
+providers:
+  - key: outbound_webhooks.disabled
+    technology: none
+    ownership: repository-local
+    notes: No outbound webhook delivery.
+
+adapters:
+  - key: outbound_webhooks.noop-adapter
+    path: packages/webhooks
+    notes: Planned no-op outbound webhook port implementation.
+
+resource_entities:
+  - key: outbound-webhook-delivery
+    purpose: Planned registry and delivery ledger for outbound webhook attempts.

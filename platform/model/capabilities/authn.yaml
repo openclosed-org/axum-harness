@@ -1,0 +1,69 @@
+key: authn
+kind: infrastructure_capability
+description: >
+  Authentication capability for request identity. Development identity injection
+  and production OIDC/JWT verification remain separate runtime states.
+
+states:
+  disabled:
+    supported: false
+    reason: protected BFF routes require a request identity boundary.
+    evidence: declared
+
+  local_mock:
+    supported: true
+    default_provider: authn.dev-headers
+    semantic_limits:
+      - development and tests only
+      - rejected by production runtime guard
+    evidence: tested
+
+  local_real:
+    supported: true
+    default_provider: authn.jwt-hs256
+    semantic_limits:
+      - local JWT verification; key management is local secret dependent
+      - production requires OIDC issuer or a non-default JWT secret
+    evidence: checked
+
+  external_single_node:
+    supported: true
+    default_provider: authn.oidc
+    semantic_limits:
+      - external identity provider availability and rotation are provider-dependent
+      - repository validates configuration shape, not provider uptime
+    evidence: checked
+
+  external_distributed:
+    supported: false
+    reason: multi-provider or HA identity-provider semantics are not modeled or gated yet.
+    evidence: declared
+
+providers:
+  - key: authn.dev-headers
+    technology: http-dev-headers
+    ownership: repository-local
+    notes: Local identity injection for dev and tests.
+
+  - key: authn.jwt-hs256
+    technology: jwt-hs256
+    ownership: repository-local
+    notes: Local JWT verification using deployable secret material.
+
+  - key: authn.oidc
+    technology: oidc
+    ownership: external-provider-or-resource-container
+    notes: OIDC/JWKS/introspection verification path.
+
+adapters:
+  - key: authn.bff-middleware-adapter
+    path: servers/bff/web-bff/src/middleware/auth_context.rs
+    notes: BFF request identity extraction and verification boundary.
+
+  - key: authn.oidc-verifier-adapter
+    path: packages/authn/oidc-verifier
+    notes: OIDC verifier package boundary.
+
+resource_entities:
+  - key: request-identity
+    purpose: Authenticated user and tenant context propagated through BFF requests.

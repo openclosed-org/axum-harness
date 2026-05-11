@@ -1,0 +1,65 @@
+key: audit_log
+kind: governance_capability
+description: >
+  Durable audit capability for security and operational events. Audit events are
+  separate from ordinary logs and must preserve actor, action, resource,
+  outcome, and correlation context.
+
+states:
+  disabled:
+    supported: false
+    reason: protected backend operations require at least local audit evidence.
+    evidence: declared
+
+  local_mock:
+    supported: true
+    default_provider: audit_log.in-memory-mirror
+    semantic_limits:
+      - tests only; not durable
+      - useful only as a readable mirror for assertions
+    evidence: tested
+
+  local_real:
+    supported: true
+    default_provider: audit_log.libsql-ledger
+    semantic_limits:
+      - append-only local durable audit table
+      - retention/export policy is not implemented yet
+    evidence: tested
+
+  external_single_node:
+    supported: true
+    default_provider: audit_log.libsql-ledger
+    semantic_limits:
+      - shared external DB can hold audit events for single-node deployment paths
+      - external SIEM/export is not implemented yet
+    evidence: tested
+
+  external_distributed:
+    supported: false
+    reason: distributed audit pipeline, retention, and export semantics are not implemented yet.
+    evidence: declared
+
+providers:
+  - key: audit_log.in-memory-mirror
+    technology: in-memory
+    ownership: repository-local
+    notes: Test-readable audit mirror.
+
+  - key: audit_log.libsql-ledger
+    technology: libsql
+    ownership: repository-local
+    notes: Durable audit event table written by BFF adapter.
+
+adapters:
+  - key: audit_log.memory-adapter
+    path: packages/security/audit
+    notes: Framework-neutral audit event contract with in-memory test sink.
+
+  - key: audit_log.libsql-adapter
+    path: servers/bff/web-bff/src/audit.rs
+    notes: BFF-local durable audit sink.
+
+resource_entities:
+  - key: audit-event-log
+    purpose: Durable audit event stream for protected backend operations.
