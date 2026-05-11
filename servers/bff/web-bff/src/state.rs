@@ -4,8 +4,10 @@
 //! When `turso_url` is configured, connects to Turso cloud.
 //! Otherwise falls back to embedded database.
 
-use crate::audit::{AuditEvent, AuditSink, InMemoryAuditSink};
+use crate::audit::{AuditEvent, AuditSink, BffAuditSink};
+use crate::billing::BillingStack;
 use crate::bootstrap::{bootstrap_bff_state, bootstrap_test_state};
+use crate::commercial::CommercialStack;
 use crate::composition::{
     CounterServiceHandle, TenantServiceHandle, UserProfileRepositoryHandle,
     UserTenantInfoRepositoryHandle, UserTenantRepositoryHandle,
@@ -50,7 +52,13 @@ pub struct BffState {
     pub(crate) oidc_verifier: Option<OidcVerifier>,
 
     /// Append-only BFF boundary audit sink.
-    pub(crate) audit: Arc<InMemoryAuditSink>,
+    pub(crate) audit: Arc<BffAuditSink>,
+
+    /// Commercial Phase 1 guard and local ledgers. Disabled by default.
+    pub(crate) commercial: CommercialStack,
+
+    /// Billing provider composition. Disabled by default.
+    pub(crate) billing: BillingStack,
 }
 
 #[derive(Clone)]
@@ -107,6 +115,33 @@ impl BffState {
 
     pub async fn audit_events(&self) -> Vec<AuditEvent> {
         self.audit.events().await
+    }
+
+    pub fn commercial(&self) -> &CommercialStack {
+        &self.commercial
+    }
+
+    pub fn billing(&self) -> &BillingStack {
+        &self.billing
+    }
+
+    pub fn set_billing_for_test(&mut self, billing: BillingStack) {
+        self.billing = billing;
+    }
+
+    pub fn set_commercial_for_test(&mut self, commercial: CommercialStack) {
+        self.commercial = commercial;
+    }
+
+    pub fn set_config_for_test(&mut self, config: Config) {
+        self.config = config;
+    }
+
+    pub fn db_for_test(&self) -> Option<EmbeddedTurso> {
+        match &self.db {
+            Some(DatabaseBackend::Embedded(db)) => Some(db.clone()),
+            _ => None,
+        }
     }
 
     pub fn counter_cache(&self) -> &Cache<String, i64> {

@@ -1,6 +1,8 @@
 //! Bootstrap and composition root for the Web BFF.
 
-use crate::audit::InMemoryAuditSink;
+use crate::audit::{AUDIT_EVENTS_SCHEMA, BffAuditSink};
+use crate::billing::{BILLING_LEDGER_SCHEMA, BillingStack};
+use crate::commercial::{COMMERCIAL_LEDGER_SCHEMA, CommercialStack};
 use crate::config::Config;
 use crate::state::{BffCompositionRoot, BffState, DatabaseBackend};
 use authn_oidc_verifier::{OidcVerifier, OidcVerifierConfig};
@@ -26,6 +28,11 @@ pub async fn bootstrap_bff_state(config: Config) -> anyhow::Result<BffState> {
     config.validate_runtime()?;
     let db = initialize_database(&config).await?;
     let authz = build_authz_adapter(&config)?;
+    initialize_commercial_ledgers(&config, db.clone()).await?;
+    let commercial = CommercialStack::from_config(&config, db.clone())?;
+    initialize_billing_ledgers(&config, db.clone()).await?;
+    let billing = BillingStack::from_config(&config, db.clone())?;
+    let audit = build_audit_sink(db.clone()).await?;
     let composition = build_composition_root(&config, db.clone()).await?;
     let http_client = build_http_client();
     let oidc_verifier = build_oidc_verifier(&config, http_client.clone());
@@ -38,24 +45,101 @@ pub async fn bootstrap_bff_state(config: Config) -> anyhow::Result<BffState> {
         http_client,
         authz,
         oidc_verifier,
-        audit: InMemoryAuditSink::shared(),
+        audit,
+        commercial,
+        billing,
     })
 }
 
 pub async fn bootstrap_test_state(db: EmbeddedTurso) -> anyhow::Result<BffState> {
     run_user_migrations(&db).await?;
+    db.execute_batch(COMMERCIAL_LEDGER_SCHEMA)
+        .await
+        .map_err(anyhow::Error::msg)?;
+    db.execute_batch(BILLING_LEDGER_SCHEMA)
+        .await
+        .map_err(anyhow::Error::msg)?;
     let db = Some(DatabaseBackend::Embedded(db));
 
     Ok(BffState {
         config: Config::default(),
         db: db.clone(),
-        composition: build_libsql_composition_root(db),
+        composition: build_libsql_composition_root(db.clone()),
         counter_cache: build_counter_cache(),
         http_client: build_http_client(),
         authz: Arc::new(MockAuthzAdapter::new()),
         oidc_verifier: None,
-        audit: InMemoryAuditSink::shared(),
+        audit: build_audit_sink(db.clone())
+            .await
+            .unwrap_or_else(|_| BffAuditSink::in_memory()),
+        commercial: CommercialStack::disabled("counter.write"),
+        billing: BillingStack::disabled(),
     })
+}
+
+async fn build_audit_sink(db: Option<DatabaseBackend>) -> anyhow::Result<Arc<BffAuditSink>> {
+    match db {
+        Some(DatabaseBackend::Embedded(db)) => {
+            db.execute_batch(AUDIT_EVENTS_SCHEMA)
+                .await
+                .map_err(anyhow::Error::msg)?;
+            Ok(BffAuditSink::durable(db))
+        }
+        Some(DatabaseBackend::Remote(db)) => {
+            db.execute_batch(AUDIT_EVENTS_SCHEMA)
+                .await
+                .map_err(anyhow::Error::msg)?;
+            Ok(BffAuditSink::durable(db))
+        }
+        None => Ok(BffAuditSink::in_memory()),
+    }
+}
+
+async fn initialize_billing_ledgers(
+    config: &Config,
+    db: Option<DatabaseBackend>,
+) -> anyhow::Result<()> {
+    if !config.billing_provider.eq_ignore_ascii_case("creem") {
+        return Ok(());
+    }
+
+    match db {
+        Some(DatabaseBackend::Embedded(db)) => db
+            .execute_batch(BILLING_LEDGER_SCHEMA)
+            .await
+            .map_err(anyhow::Error::msg),
+        Some(DatabaseBackend::Remote(db)) => db
+            .execute_batch(BILLING_LEDGER_SCHEMA)
+            .await
+            .map_err(anyhow::Error::msg),
+        None => anyhow::bail!("APP_BILLING_PROVIDER=creem requires database configuration"),
+    }
+}
+
+async fn initialize_commercial_ledgers(
+    config: &Config,
+    db: Option<DatabaseBackend>,
+) -> anyhow::Result<()> {
+    if config.commercial_mode.eq_ignore_ascii_case("disabled")
+        || config.commercial_mode.eq_ignore_ascii_case("local_mock")
+    {
+        return Ok(());
+    }
+
+    match db {
+        Some(DatabaseBackend::Embedded(db)) => db
+            .execute_batch(COMMERCIAL_LEDGER_SCHEMA)
+            .await
+            .map_err(anyhow::Error::msg),
+        Some(DatabaseBackend::Remote(db)) => db
+            .execute_batch(COMMERCIAL_LEDGER_SCHEMA)
+            .await
+            .map_err(anyhow::Error::msg),
+        None => anyhow::bail!(
+            "APP_COMMERCIAL_MODE={} requires APP_DATABASE_URL or Turso configuration",
+            config.commercial_mode
+        ),
+    }
 }
 
 fn build_counter_cache() -> Cache<String, i64> {

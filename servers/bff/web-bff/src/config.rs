@@ -59,6 +59,26 @@ pub struct Config {
     pub surrealdb_user: String,
     pub surrealdb_pass: Option<String>,
     pub surrealdb_tenant_scope: String,
+    /// Commercial guard mode for Phase 1 seams.
+    /// Supported values: `disabled`, `local_mock`, `local_dev`, `local_real`.
+    pub commercial_mode: String,
+    /// Capability key checked before tenant-scoped counter writes when commercial mode is enabled.
+    pub counter_paid_capability: String,
+    /// Static allow-list used by `APP_COMMERCIAL_MODE=local_mock`.
+    #[serde(deserialize_with = "deserialize_string_list")]
+    pub commercial_mock_allowed_capabilities: Vec<String>,
+    /// Billing provider adapter. Supported values: `disabled`, `creem`.
+    pub billing_provider: String,
+    /// Creem environment. Supported values: `test`, `live`.
+    pub creem_env: String,
+    /// Creem API key. Used only by server-side checkout creation.
+    pub creem_api_key: String,
+    /// Creem webhook HMAC secret.
+    pub creem_webhook_secret: String,
+    /// Creem product mapped to the counter paid capability.
+    pub creem_product_counter_pro: String,
+    /// Public base URL used to build Creem checkout success URLs.
+    pub public_base_url: String,
 }
 
 impl Config {
@@ -95,6 +115,15 @@ impl Default for Config {
             surrealdb_user: "root".to_string(),
             surrealdb_pass: None,
             surrealdb_tenant_scope: "platform".to_string(),
+            commercial_mode: "disabled".to_string(),
+            counter_paid_capability: "counter.write".to_string(),
+            commercial_mock_allowed_capabilities: vec!["counter.write".to_string()],
+            billing_provider: "disabled".to_string(),
+            creem_env: "test".to_string(),
+            creem_api_key: String::new(),
+            creem_webhook_secret: String::new(),
+            creem_product_counter_pro: String::new(),
+            public_base_url: "http://localhost:3010".to_string(),
         }
     }
 }
@@ -119,6 +148,8 @@ impl RuntimeSecurityPolicy for Config {
         &self,
         profile: RuntimeProfile,
     ) -> Result<(), RuntimeGuardViolation> {
+        self.validate_billing_provider()?;
+
         if !profile.is_production() {
             return Ok(());
         }
@@ -171,10 +202,98 @@ impl RuntimeSecurityPolicy for Config {
             }
         }
 
+        if self.commercial_mode.eq_ignore_ascii_case("local_mock")
+            || self.commercial_mode.eq_ignore_ascii_case("local_dev")
+        {
+            return Err(RuntimeGuardViolation::new(
+                "APP_COMMERCIAL_MODE",
+                "APP_COMMERCIAL_MODE=local_mock or local_dev is not allowed in production",
+            ));
+        }
+
+        if !self.commercial_mode.eq_ignore_ascii_case("disabled")
+            && !self.commercial_mode.eq_ignore_ascii_case("local_real")
+        {
+            return Err(RuntimeGuardViolation::new(
+                "APP_COMMERCIAL_MODE",
+                "production commercial mode must use disabled or local_real",
+            ));
+        }
+
+        if self.billing_provider.eq_ignore_ascii_case("creem") {
+            if !self.commercial_mode.eq_ignore_ascii_case("local_real") {
+                return Err(RuntimeGuardViolation::new(
+                    "APP_COMMERCIAL_MODE",
+                    "production Creem billing requires APP_COMMERCIAL_MODE=local_real",
+                ));
+            }
+
+            if !self.creem_env.eq_ignore_ascii_case("live") {
+                return Err(RuntimeGuardViolation::new(
+                    "APP_CREEM_ENV",
+                    "production Creem billing requires APP_CREEM_ENV=live",
+                ));
+            }
+        }
+
         if self.cors_allowed_origins.is_empty() {
             return Err(RuntimeGuardViolation::new(
                 "APP_CORS_ALLOWED_ORIGINS",
                 "production requires APP_CORS_ALLOWED_ORIGINS allowlist",
+            ));
+        }
+
+        Ok(())
+    }
+}
+
+impl Config {
+    fn validate_billing_provider(&self) -> Result<(), RuntimeGuardViolation> {
+        if self.billing_provider.eq_ignore_ascii_case("creem") {
+            if !self.creem_env.eq_ignore_ascii_case("test")
+                && !self.creem_env.eq_ignore_ascii_case("live")
+            {
+                return Err(RuntimeGuardViolation::new(
+                    "APP_CREEM_ENV",
+                    "APP_CREEM_ENV must be test or live",
+                ));
+            }
+
+            if self.creem_api_key.trim().is_empty() {
+                return Err(RuntimeGuardViolation::new(
+                    "APP_CREEM_API_KEY",
+                    "APP_BILLING_PROVIDER=creem requires APP_CREEM_API_KEY",
+                ));
+            }
+
+            if self.creem_webhook_secret.trim().is_empty() {
+                return Err(RuntimeGuardViolation::new(
+                    "APP_CREEM_WEBHOOK_SECRET",
+                    "APP_BILLING_PROVIDER=creem requires APP_CREEM_WEBHOOK_SECRET",
+                ));
+            }
+
+            if self.creem_product_counter_pro.trim().is_empty() {
+                return Err(RuntimeGuardViolation::new(
+                    "APP_CREEM_PRODUCT_COUNTER_PRO",
+                    "APP_BILLING_PROVIDER=creem requires APP_CREEM_PRODUCT_COUNTER_PRO",
+                ));
+            }
+
+            if self.public_base_url.trim().is_empty() {
+                return Err(RuntimeGuardViolation::new(
+                    "APP_PUBLIC_BASE_URL",
+                    "APP_BILLING_PROVIDER=creem requires APP_PUBLIC_BASE_URL",
+                ));
+            }
+
+            return Ok(());
+        }
+
+        if !self.billing_provider.eq_ignore_ascii_case("disabled") {
+            return Err(RuntimeGuardViolation::new(
+                "APP_BILLING_PROVIDER",
+                "APP_BILLING_PROVIDER must be disabled or creem",
             ));
         }
 
@@ -275,6 +394,90 @@ mod tests {
             .unwrap_err()
             .to_string();
         assert!(error.contains("APP_AUTH_MODE"));
+    }
+
+    #[test]
+    fn production_rejects_local_mock_commercial_mode() {
+        let config = Config {
+            commercial_mode: "local_mock".to_string(),
+            ..production_ready_config()
+        };
+
+        let error = config
+            .validate_runtime_profile(RuntimeProfile::Production)
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("APP_COMMERCIAL_MODE"));
+    }
+
+    #[test]
+    fn production_rejects_local_dev_commercial_mode() {
+        let config = Config {
+            commercial_mode: "local_dev".to_string(),
+            ..production_ready_config()
+        };
+
+        let error = config
+            .validate_runtime_profile(RuntimeProfile::Production)
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("APP_COMMERCIAL_MODE"));
+    }
+
+    #[test]
+    fn production_allows_local_real_commercial_mode() {
+        let config = Config {
+            commercial_mode: "local_real".to_string(),
+            ..production_ready_config()
+        };
+
+        config
+            .validate_runtime_profile(RuntimeProfile::Production)
+            .unwrap();
+    }
+
+    #[test]
+    fn non_production_creem_requires_provider_settings() {
+        let config = Config {
+            billing_provider: "creem".to_string(),
+            ..Config::default()
+        };
+
+        let error = config
+            .validate_runtime_profile(RuntimeProfile::Development)
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("APP_CREEM_API_KEY"));
+    }
+
+    #[test]
+    fn production_creem_requires_live_env_and_local_real() {
+        let config = Config {
+            commercial_mode: "disabled".to_string(),
+            billing_provider: "creem".to_string(),
+            creem_env: "test".to_string(),
+            creem_api_key: "test-key".to_string(),
+            creem_webhook_secret: "test-secret".to_string(),
+            creem_product_counter_pro: "prod_test".to_string(),
+            public_base_url: "https://example.com".to_string(),
+            ..production_ready_config()
+        };
+
+        let error = config
+            .validate_runtime_profile(RuntimeProfile::Production)
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("APP_COMMERCIAL_MODE"));
+
+        let config = Config {
+            commercial_mode: "local_real".to_string(),
+            ..config
+        };
+        let error = config
+            .validate_runtime_profile(RuntimeProfile::Production)
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("APP_CREEM_ENV"));
     }
 
     #[test]

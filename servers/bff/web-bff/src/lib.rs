@@ -7,7 +7,9 @@
 pub mod application;
 pub mod audit;
 pub mod authz;
+pub mod billing;
 pub mod bootstrap;
+pub mod commercial;
 pub mod composition;
 pub mod config;
 pub mod error;
@@ -60,6 +62,7 @@ impl Modify for SecurityAddon {
     tags(
         (name = "health", description = "Service health and readiness probes"),
         (name = "tenant", description = "Tenant bootstrap endpoints"),
+        (name = "billing", description = "Commercial checkout and provider webhook endpoints"),
         (name = "counter", description = "Tenant-scoped counter endpoints"),
         (name = "user", description = "Authenticated user read endpoints")
     )
@@ -88,6 +91,7 @@ fn openapi_router() -> OpenApiRouter<BffState> {
 
     let api_routes = OpenApiRouter::new()
         .merge(handlers::tenant::openapi_router())
+        .merge(handlers::billing::authenticated_openapi_router())
         .merge(handlers::counter::openapi_router())
         .merge(handlers::user::openapi_router())
         .route_layer(axum::middleware::from_fn(
@@ -96,6 +100,7 @@ fn openapi_router() -> OpenApiRouter<BffState> {
 
     OpenApiRouter::with_openapi(api_doc)
         .merge(handlers::health::openapi_router())
+        .merge(handlers::billing::public_openapi_router())
         .merge(api_routes)
 }
 

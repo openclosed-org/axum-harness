@@ -23,6 +23,7 @@ storage_surrealdb = { workspace = true, optional = true }
 observability = { workspace = true }
 authn-oidc-verifier = { workspace = true }
 authz = { workspace = true }
+commercial = { workspace = true }
 security-audit = { workspace = true }
 security-context = { workspace = true }
 security-runtime-policy = { workspace = true }
@@ -49,6 +50,9 @@ anyhow = { workspace = true }
 # Auth
 jsonwebtoken = { workspace = true }
 base64 = { workspace = true }
+hex = { workspace = true }
+sha2 = { workspace = true }
+subtle = "2"
 
 # Tracing
 tracing = { workspace = true }

@@ -1491,6 +1491,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "commercial"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+ "uuid",
+ "workspace-hack",
+]
+
+[[package]]
 name = "concurrent-queue"
 version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -10836,6 +10850,7 @@ dependencies = [
  "axum-extra",
  "base64 0.22.1",
  "chrono",
+ "commercial",
  "contracts_api",
  "contracts_errors",
  "contracts_events",
@@ -10843,6 +10858,7 @@ dependencies = [
  "data",
  "event-bus",
  "futures-util",
+ "hex",
  "http-body-util",
  "hyper",
  "jsonwebtoken",
@@ -10857,8 +10873,10 @@ dependencies = [
  "security-runtime-policy",
  "serde",
  "serde_json",
+ "sha2",
  "storage_surrealdb",
  "storage_turso",
+ "subtle",
  "tenant-service",
  "thiserror 2.0.18",
  "tokio",

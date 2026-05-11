@@ -68,6 +68,8 @@ members = [
     "packages/authn/oidc-verifier",
     # AuthZ
     "packages/authz",
+    # Commercial capability seams
+    "packages/commercial",
     # Security
     "packages/security/audit",
     "packages/security/context",
@@ -161,6 +163,7 @@ adapter-google = { path = "packages/authn/adapters/google", version = "0.1.0" }
 adapter-google-backend = { path = "packages/authn/adapters/google-backend", version = "0.1.0" }
 authn-oidc-verifier = { path = "packages/authn/oidc-verifier", version = "0.1.0" }
 authz = { path = "packages/authz", version = "0.1.0" }
+commercial = { path = "packages/commercial", version = "0.1.0" }
 security-audit = { path = "packages/security/audit", version = "0.1.0" }
 security-context = { path = "packages/security/context", version = "0.1.0" }
 security-runtime-policy = { path = "packages/security/runtime-policy", version = "0.1.0" }

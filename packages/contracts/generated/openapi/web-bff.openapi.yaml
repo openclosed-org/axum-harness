@@ -3,6 +3,80 @@ info:
   title: web-bff
   version: 0.1.0
 paths:
+  /api/billing/checkout/creem/counter-pro:
+    post:
+      tags:
+      - billing
+      operationId: create_creem_counter_checkout
+      responses:
+        '200':
+          description: Creem checkout session created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CheckoutResponseBody'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Creem billing provider not enabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Creem API or local dependency failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - bearer_auth: []
+  /api/billing/webhooks/creem:
+    post:
+      tags:
+      - billing
+      operationId: creem_webhook
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: string
+        required: true
+      responses:
+        '200':
+          description: Creem webhook accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookResponseBody'
+        '400':
+          description: Malformed webhook payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Invalid Creem webhook signature
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Creem billing provider not enabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Webhook ledger or projection failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/counter/decrement:
     post:
       tags:
@@ -349,6 +423,13 @@ paths:
                 $ref: '#/components/schemas/ReadinessResponse'
 components:
   schemas:
+    CheckoutResponseBody:
+      type: object
+      required:
+      - checkout_url
+      properties:
+        checkout_url:
+          type: string
     CounterResponse:
       type: object
       description: Generic counter operation response.
@@ -492,6 +573,16 @@ components:
           type:
           - string
           - 'null'
+    WebhookResponseBody:
+      type: object
+      required:
+      - received
+      - duplicate
+      properties:
+        duplicate:
+          type: boolean
+        received:
+          type: boolean
   securitySchemes:
     bearer_auth:
       type: http
@@ -503,6 +594,8 @@ tags:
   description: Service health and readiness probes
 - name: tenant
   description: Tenant bootstrap endpoints
+- name: billing
+  description: Commercial checkout and provider webhook endpoints
 - name: counter
   description: Tenant-scoped counter endpoints
 - name: user

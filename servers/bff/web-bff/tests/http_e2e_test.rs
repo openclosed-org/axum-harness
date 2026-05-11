@@ -13,9 +13,17 @@ use counter_service::infrastructure::LibSqlCounterRepository;
 use http_body_util::BodyExt;
 use mockito::Server;
 use storage_turso::EmbeddedTurso;
+use storage_turso::TursoBackend;
 use tower::ServiceExt;
 use user_service::{domain::User, infrastructure::LibSqlUserRepository, ports::UserRepository};
-use web_bff::{audit::AuditOutcome, create_router, openapi, state::BffState};
+use web_bff::{
+    audit::AuditOutcome,
+    billing::{BillingStack, creem_signature_for_test},
+    commercial::CommercialStack,
+    config::Config,
+    create_router, openapi,
+    state::{BffState, DatabaseBackend},
+};
 
 /// Helper: build test AppState with embedded Turso
 async fn build_test_state() -> BffState {
@@ -1263,6 +1271,575 @@ async fn counter_mutation_audit_redacts_idempotency_key() {
     assert_eq!(authz_event.tenant_id.as_deref(), Some(tenant_id));
     assert_eq!(authz_event.metadata["tenant_id"], tenant_id);
     assert_eq!(authz_event.metadata["request_id"], "audit-request-id");
+}
+
+#[tokio::test]
+async fn disabled_commercial_mode_does_not_affect_counter_increment() {
+    let mut state = build_test_state().await;
+    state.set_commercial_for_test(CommercialStack::disabled("counter.write"));
+    let app = create_router(state);
+    let token = make_test_token("commercial-disabled-user");
+
+    let init_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/api/tenant/init")
+                .method(http::Method::POST)
+                .header(http::header::AUTHORIZATION, format!("Bearer {token}"))
+                .header(http::header::CONTENT_TYPE, "application/json")
+                .body(Body::from(
+                    r#"{"user_sub":"commercial-disabled-user","user_name":"Commercial Disabled User"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(init_response.status(), StatusCode::OK);
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri("/api/counter/increment")
+                .method(http::Method::POST)
+                .header(http::header::AUTHORIZATION, format!("Bearer {token}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let body: serde_json::Value = body_to_json(response).await;
+    assert_eq!(body.get("value").unwrap(), 1);
+}
+
+#[tokio::test]
+async fn local_mock_commercial_denies_counter_increment_without_entitlement() {
+    let mut state = build_test_state().await;
+    state.set_commercial_for_test(CommercialStack::local_mock(
+        "counter.write",
+        ["counter.read"],
+    ));
+    let app = create_router(state);
+    let token = make_test_token("commercial-denied-user");
+
+    let init_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/api/tenant/init")
+                .method(http::Method::POST)
+                .header(http::header::AUTHORIZATION, format!("Bearer {token}"))
+                .header(http::header::CONTENT_TYPE, "application/json")
+                .body(Body::from(
+                    r#"{"user_sub":"commercial-denied-user","user_name":"Commercial Denied User"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(init_response.status(), StatusCode::OK);
+
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/api/counter/increment")
+                .method(http::Method::POST)
+                .header(http::header::AUTHORIZATION, format!("Bearer {token}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::FORBIDDEN);
+
+    let value_response = app
+        .oneshot(
+            Request::builder()
+                .uri("/api/counter/value")
+                .method(http::Method::GET)
+                .header(http::header::AUTHORIZATION, format!("Bearer {token}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(value_response.status(), StatusCode::OK);
+    let body: serde_json::Value = body_to_json(value_response).await;
+    assert_eq!(body.get("value").unwrap(), 0);
+}
+
+#[tokio::test]
+async fn local_mock_commercial_records_usage_and_enforces_quota() {
+    let mut state = build_test_state().await;
+    let commercial = CommercialStack::local_mock("counter.write", ["counter.write"]);
+    state.set_commercial_for_test(commercial.clone());
+    let app = create_router(state);
+    let token = make_test_token("commercial-quota-user");
+
+    let init_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/api/tenant/init")
+                .method(http::Method::POST)
+                .header(http::header::AUTHORIZATION, format!("Bearer {token}"))
+                .header(http::header::CONTENT_TYPE, "application/json")
+                .body(Body::from(
+                    r#"{"user_sub":"commercial-quota-user","user_name":"Commercial Quota User"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(init_response.status(), StatusCode::OK);
+    let init_body: serde_json::Value = body_to_json(init_response).await;
+    let tenant_id = init_body
+        .get("tenant_id")
+        .and_then(|value| value.as_str())
+        .expect("tenant init should return tenant_id")
+        .to_string();
+    commercial
+        .set_counter_quota_limit_for_test(&tenant_id, 1)
+        .await;
+
+    let first = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/api/counter/increment")
+                .method(http::Method::POST)
+                .header(http::header::AUTHORIZATION, format!("Bearer {token}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(first.status(), StatusCode::OK);
+
+    let second = app
+        .oneshot(
+            Request::builder()
+                .uri("/api/counter/increment")
+                .method(http::Method::POST)
+                .header(http::header::AUTHORIZATION, format!("Bearer {token}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(second.status(), StatusCode::FORBIDDEN);
+
+    let events = commercial.usage_events_for_test().await;
+    assert_eq!(events.len(), 1);
+    assert_eq!(events[0].meter_name, "counter.write");
+    assert_eq!(events[0].tenant.as_str(), tenant_id);
+    assert_eq!(
+        commercial
+            .committed_counter_usage_for_test(&tenant_id)
+            .await,
+        1
+    );
+}
+
+#[tokio::test]
+async fn local_real_commercial_uses_durable_usage_and_quota_ledgers() {
+    let mut state = build_test_state().await;
+    let db = state
+        .db_for_test()
+        .expect("test state should expose database");
+    let commercial = CommercialStack::local_real(
+        "counter.write",
+        ["counter.write"],
+        TursoBackend::Embedded(db),
+    )
+    .expect("local_real commercial stack should build");
+    state.set_commercial_for_test(commercial.clone());
+    let app = create_router(state);
+    let token = make_test_token("commercial-local-real-user");
+
+    let init_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/api/tenant/init")
+                .method(http::Method::POST)
+                .header(http::header::AUTHORIZATION, format!("Bearer {token}"))
+                .header(http::header::CONTENT_TYPE, "application/json")
+                .body(Body::from(
+                    r#"{"user_sub":"commercial-local-real-user","user_name":"Commercial Local Real User"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(init_response.status(), StatusCode::OK);
+    let init_body: serde_json::Value = body_to_json(init_response).await;
+    let tenant_id = init_body
+        .get("tenant_id")
+        .and_then(|value| value.as_str())
+        .expect("tenant init should return tenant_id")
+        .to_string();
+    commercial
+        .set_counter_quota_limit_for_test(&tenant_id, 1)
+        .await;
+
+    let first = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/api/counter/increment")
+                .method(http::Method::POST)
+                .header(http::header::AUTHORIZATION, format!("Bearer {token}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(first.status(), StatusCode::OK);
+
+    let second = app
+        .oneshot(
+            Request::builder()
+                .uri("/api/counter/increment")
+                .method(http::Method::POST)
+                .header(http::header::AUTHORIZATION, format!("Bearer {token}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(second.status(), StatusCode::FORBIDDEN);
+
+    assert_eq!(commercial.usage_events_for_test().await.len(), 1);
+    assert_eq!(
+        commercial
+            .committed_counter_usage_for_test(&tenant_id)
+            .await,
+        1
+    );
+}
+
+#[tokio::test]
+async fn local_real_config_requires_durable_entitlement_before_counter_write() {
+    let mut state = build_test_state().await;
+    let db = state
+        .db_for_test()
+        .expect("test state should expose database");
+    let mut config = creem_test_config();
+    config.commercial_mode = "local_real".to_string();
+    config.commercial_mock_allowed_capabilities = vec!["counter.write".to_string()];
+    state.set_config_for_test(config.clone());
+    state.set_commercial_for_test(
+        CommercialStack::from_config(&config, Some(DatabaseBackend::Embedded(db.clone())))
+            .expect("local_real commercial stack should build"),
+    );
+    let billing = BillingStack::creem_for_test(config, DatabaseBackend::Embedded(db))
+        .expect("Creem billing stack should build");
+    state.set_billing_for_test(billing);
+    let app = create_router(state);
+    let token = make_test_token("commercial-local-real-denied-user");
+
+    let init_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/api/tenant/init")
+                .method(http::Method::POST)
+                .header(http::header::AUTHORIZATION, format!("Bearer {token}"))
+                .header(http::header::CONTENT_TYPE, "application/json")
+                .body(Body::from(
+                    r#"{"user_sub":"commercial-local-real-denied-user","user_name":"Commercial Local Real Denied User"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(init_response.status(), StatusCode::OK);
+    let init_body: serde_json::Value = body_to_json(init_response).await;
+    let tenant_id = init_body
+        .get("tenant_id")
+        .and_then(|value| value.as_str())
+        .expect("tenant init should return tenant_id")
+        .to_string();
+
+    let denied = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/api/counter/increment")
+                .method(http::Method::POST)
+                .header(http::header::AUTHORIZATION, format!("Bearer {token}"))
+                .header("Idempotency-Key", "before-entitlement")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(denied.status(), StatusCode::FORBIDDEN);
+
+    let grant_body = creem_official_checkout_completed_payload(
+        "evt_durable_grant",
+        &tenant_id,
+        "commercial-local-real-denied-user",
+    );
+    let grant_signature = creem_signature_for_test("test-webhook-secret", grant_body.as_bytes());
+    let grant = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/api/billing/webhooks/creem")
+                .method(http::Method::POST)
+                .header("creem-signature", grant_signature)
+                .header(http::header::CONTENT_TYPE, "application/json")
+                .body(Body::from(grant_body))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(grant.status(), StatusCode::OK);
+
+    let allowed = app
+        .oneshot(
+            Request::builder()
+                .uri("/api/counter/increment")
+                .method(http::Method::POST)
+                .header(http::header::AUTHORIZATION, format!("Bearer {token}"))
+                .header("Idempotency-Key", "after-entitlement")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(allowed.status(), StatusCode::OK);
+}
+
+#[tokio::test]
+async fn creem_webhook_rejects_invalid_signature() {
+    let mut state = build_test_state().await;
+    let db = state
+        .db_for_test()
+        .expect("test state should expose database");
+    let config = creem_test_config();
+    state.set_billing_for_test(
+        BillingStack::creem_for_test(config, DatabaseBackend::Embedded(db))
+            .expect("Creem billing stack should build"),
+    );
+    let app = create_router(state);
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri("/api/billing/webhooks/creem")
+                .method(http::Method::POST)
+                .header("creem-signature", "invalid")
+                .header(http::header::CONTENT_TYPE, "application/json")
+                .body(Body::from(creem_checkout_completed_payload(
+                    "evt_invalid",
+                    "tenant-a",
+                    "user-a",
+                )))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+}
+
+#[tokio::test]
+async fn creem_webhook_grants_and_revokes_counter_entitlement() {
+    let mut state = build_test_state().await;
+    let db = state
+        .db_for_test()
+        .expect("test state should expose database");
+    let config = creem_test_config();
+    let billing = BillingStack::creem_for_test(config, DatabaseBackend::Embedded(db))
+        .expect("Creem billing stack should build");
+    let creem = billing.creem().expect("Creem provider should be enabled");
+    state.set_billing_for_test(billing);
+    let app = create_router(state);
+
+    let grant_body = creem_checkout_completed_payload("evt_grant", "tenant-a", "user-a");
+    let grant_signature = creem_signature_for_test("test-webhook-secret", grant_body.as_bytes());
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/api/billing/webhooks/creem")
+                .method(http::Method::POST)
+                .header("creem-signature", grant_signature)
+                .header(http::header::CONTENT_TYPE, "application/json")
+                .body(Body::from(grant_body.clone()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    assert!(
+        creem
+            .entitlement_active_for_test("tenant-a", "user-a", "counter.write")
+            .await
+            .unwrap()
+    );
+
+    let duplicate_signature =
+        creem_signature_for_test("test-webhook-secret", grant_body.as_bytes());
+    let duplicate = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/api/billing/webhooks/creem")
+                .method(http::Method::POST)
+                .header("creem-signature", duplicate_signature)
+                .header(http::header::CONTENT_TYPE, "application/json")
+                .body(Body::from(grant_body))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(duplicate.status(), StatusCode::OK);
+    let duplicate_body: serde_json::Value = body_to_json(duplicate).await;
+    assert_eq!(duplicate_body.get("duplicate").unwrap(), true);
+
+    let revoke_body = creem_subscription_canceled_payload("evt_revoke", "tenant-a", "user-a");
+    let revoke_signature = creem_signature_for_test("test-webhook-secret", revoke_body.as_bytes());
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri("/api/billing/webhooks/creem")
+                .method(http::Method::POST)
+                .header("creem-signature", revoke_signature)
+                .header(http::header::CONTENT_TYPE, "application/json")
+                .body(Body::from(revoke_body))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    assert!(
+        !creem
+            .entitlement_active_for_test("tenant-a", "user-a", "counter.write")
+            .await
+            .unwrap()
+    );
+}
+
+#[tokio::test]
+async fn creem_webhook_accepts_official_checkout_shape() {
+    let mut state = build_test_state().await;
+    let db = state
+        .db_for_test()
+        .expect("test state should expose database");
+    let config = creem_test_config();
+    let billing = BillingStack::creem_for_test(config, DatabaseBackend::Embedded(db))
+        .expect("Creem billing stack should build");
+    let creem = billing.creem().expect("Creem provider should be enabled");
+    state.set_billing_for_test(billing);
+    let app = create_router(state);
+
+    let body = creem_official_checkout_completed_payload("evt_official", "tenant-a", "user-a");
+    let signature = creem_signature_for_test("test-webhook-secret", body.as_bytes());
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri("/api/billing/webhooks/creem")
+                .method(http::Method::POST)
+                .header("creem-signature", signature)
+                .header(http::header::CONTENT_TYPE, "application/json")
+                .body(Body::from(body))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    assert!(
+        creem
+            .entitlement_active_for_test("tenant-a", "user-a", "counter.write")
+            .await
+            .unwrap()
+    );
+}
+
+fn creem_test_config() -> Config {
+    Config {
+        billing_provider: "creem".to_string(),
+        creem_env: "test".to_string(),
+        creem_api_key: "test-api-key".to_string(),
+        creem_webhook_secret: "test-webhook-secret".to_string(),
+        creem_product_counter_pro: "prod_test_counter".to_string(),
+        public_base_url: "https://example.test".to_string(),
+        ..Config::default()
+    }
+}
+
+fn creem_checkout_completed_payload(event_id: &str, tenant_id: &str, subject_id: &str) -> String {
+    serde_json::json!({
+        "id": event_id,
+        "type": "checkout.completed",
+        "data": {
+            "id": "checkout_1",
+            "customer_id": "cust_1",
+            "subscription_id": "sub_1",
+            "metadata": {
+                "tenant_id": tenant_id,
+                "subject_id": subject_id,
+                "capability": "counter.write"
+            }
+        }
+    })
+    .to_string()
+}
+
+fn creem_subscription_canceled_payload(
+    event_id: &str,
+    tenant_id: &str,
+    subject_id: &str,
+) -> String {
+    serde_json::json!({
+        "id": event_id,
+        "type": "subscription.canceled",
+        "data": {
+            "id": "sub_1",
+            "customer_id": "cust_1",
+            "metadata": {
+                "tenant_id": tenant_id,
+                "subject_id": subject_id,
+                "capability": "counter.write"
+            }
+        }
+    })
+    .to_string()
+}
+
+fn creem_official_checkout_completed_payload(
+    event_id: &str,
+    tenant_id: &str,
+    subject_id: &str,
+) -> String {
+    serde_json::json!({
+        "id": event_id,
+        "eventType": "checkout.completed",
+        "object": {
+            "id": "ch_1",
+            "object": "checkout",
+            "customer": {
+                "id": "cust_1"
+            },
+            "subscription": {
+                "id": "sub_1"
+            },
+            "metadata": {
+                "tenant_id": tenant_id,
+                "subject_id": subject_id,
+                "capability": "counter.write"
+            }
+        }
+    })
+    .to_string()
 }
 
 #[tokio::test]
