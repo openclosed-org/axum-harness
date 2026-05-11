@@ -12,7 +12,7 @@
     },
     "kind": {
       "type": "string",
-      "enum": ["infrastructure_capability", "commercial_capability", "growth_capability", "integration_capability", "governance_capability"]
+      "enum": ["infrastructure_capability", "commercial_capability", "growth_capability", "integration_capability", "governance_capability", "ai_capability"]
     },
     "description": {
       "type": "string"

@@ -1,0 +1,65 @@
+key: llm_provider
+kind: ai_capability
+description: >
+  LLM provider capability. Business code depends on local AI ports and usage
+  projections; OpenAI, Anthropic, Gemini, or other provider SDKs must remain
+  behind adapters and composition roots.
+
+states:
+  disabled:
+    supported: true
+    default_provider: llm_provider.disabled
+    semantic_limits:
+      - AI invocation is denied before provider calls
+    evidence: tested
+
+  local_mock:
+    supported: true
+    default_provider: llm_provider.mock
+    semantic_limits:
+      - deterministic mocked provider response
+      - development and tests only
+    evidence: tested
+
+  local_real:
+    supported: true
+    default_provider: llm_provider.local-port
+    semantic_limits:
+      - framework-neutral port and local prompt/tool/trace shape only
+      - no real provider transport is implemented yet
+    evidence: tested
+
+  external_single_node:
+    supported: false
+    reason: real external LLM provider adapter is not implemented yet.
+    evidence: declared
+
+  external_distributed:
+    supported: false
+    reason: distributed AI routing, provider failover, and replay semantics are not implemented yet.
+    evidence: declared
+
+providers:
+  - key: llm_provider.disabled
+    technology: none
+    ownership: repository-local
+    notes: LLM invocation disabled.
+
+  - key: llm_provider.mock
+    technology: in-memory-mock
+    ownership: repository-local
+    notes: Mocked provider contract for tests.
+
+  - key: llm_provider.local-port
+    technology: framework-neutral-port
+    ownership: repository-local
+    notes: Local AI invocation service with entitlement, quota, metering, prompt, tool permission, and trace seams.
+
+adapters:
+  - key: llm_provider.mock-adapter
+    path: packages/ai
+    notes: MockLlmProvider and AiInvocationService reference seam.
+
+resource_entities:
+  - key: ai-invocation
+    purpose: AI invocation request, response, token usage, and trace correlation entity.

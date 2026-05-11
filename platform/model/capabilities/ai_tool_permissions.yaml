@@ -1,0 +1,59 @@
+key: ai_tool_permissions
+kind: ai_capability
+description: >
+  AI tool permission capability. Tool access is a security boundary integrated
+  with entitlement and policy checks, not a UI preference.
+
+states:
+  disabled:
+    supported: true
+    default_provider: ai_tool_permissions.deny-all
+    semantic_limits:
+      - tool calls are denied unless a policy is configured
+    evidence: tested
+
+  local_mock:
+    supported: true
+    default_provider: ai_tool_permissions.static-allow-list
+    semantic_limits:
+      - static allow-list only
+      - development and tests only
+    evidence: tested
+
+  local_real:
+    supported: true
+    default_provider: ai_tool_permissions.static-allow-list
+    semantic_limits:
+      - local policy semantics only
+      - durable authz-backed policy adapter is not implemented yet
+    evidence: tested
+
+  external_single_node:
+    supported: false
+    reason: external authz-backed tool policy adapter is not implemented yet.
+    evidence: declared
+
+  external_distributed:
+    supported: false
+    reason: distributed tool policy propagation and audit semantics are not implemented yet.
+    evidence: declared
+
+providers:
+  - key: ai_tool_permissions.deny-all
+    technology: none
+    ownership: repository-local
+    notes: Default deny behavior for tool calls.
+
+  - key: ai_tool_permissions.static-allow-list
+    technology: static-config
+    ownership: repository-local
+    notes: Static tool allow-list for local tests and development.
+
+adapters:
+  - key: ai_tool_permissions.static-adapter
+    path: packages/ai
+    notes: StaticToolPermissionPolicy checks requested tools before provider invocation.
+
+resource_entities:
+  - key: ai-tool-policy
+    purpose: Runtime policy for AI tool access.

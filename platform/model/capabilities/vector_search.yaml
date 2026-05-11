@@ -1,0 +1,58 @@
+key: vector_search
+kind: ai_capability
+description: >
+  Vector search capability for optional RAG retrieval. This phase declares the
+  capability and provider choices before runtime implementation.
+
+states:
+  disabled:
+    supported: true
+    default_provider: vector_search.disabled
+    semantic_limits:
+      - RAG/vector retrieval is unavailable
+    evidence: declared
+
+  local_mock:
+    supported: false
+    reason: no vector search mock adapter is implemented yet.
+    evidence: declared
+
+  local_real:
+    supported: false
+    reason: local vector index adapter is not implemented yet.
+    evidence: declared
+
+  external_single_node:
+    supported: false
+    reason: external single-node vector provider adapter is not implemented yet.
+    evidence: declared
+
+  external_distributed:
+    supported: false
+    reason: distributed vector search topology and replay semantics are not implemented yet.
+    evidence: declared
+
+providers:
+  - key: vector_search.disabled
+    technology: none
+    ownership: repository-local
+    notes: Vector search disabled.
+
+  - key: vector_search.qdrant
+    technology: qdrant
+    ownership: optional-resource-container-or-managed
+    notes: Planned optional vector search provider.
+
+  - key: vector_search.meilisearch
+    technology: meilisearch
+    ownership: optional-resource-container-or-managed
+    notes: Planned optional search/vector provider lane.
+
+adapters:
+  - key: vector_search.planned-adapter
+    path: packages/ai
+    notes: Runtime vector search adapter is intentionally not implemented in Phase 6.
+
+resource_entities:
+  - key: vector-index
+    purpose: Optional RAG/vector retrieval index.

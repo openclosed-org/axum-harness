@@ -1,0 +1,57 @@
+key: prompt_registry
+kind: ai_capability
+description: >
+  Prompt registry capability for versioned prompts that affect paid or
+  user-visible AI behavior.
+
+states:
+  disabled:
+    supported: false
+    reason: AI invocation requires a selected prompt when llm_provider is enabled.
+    evidence: declared
+
+  local_mock:
+    supported: true
+    default_provider: prompt_registry.in-memory
+    semantic_limits:
+      - process-local prompt versions only
+      - development and tests only
+    evidence: tested
+
+  local_real:
+    supported: true
+    default_provider: prompt_registry.file-or-db-shaped
+    semantic_limits:
+      - local version-selection semantics are tested
+      - durable file or DB adapter is not implemented yet
+    evidence: tested
+
+  external_single_node:
+    supported: false
+    reason: external prompt registry or durable single-node adapter is not implemented yet.
+    evidence: declared
+
+  external_distributed:
+    supported: false
+    reason: distributed prompt publishing, approval, and rollout semantics are not implemented yet.
+    evidence: declared
+
+providers:
+  - key: prompt_registry.in-memory
+    technology: in-memory
+    ownership: repository-local
+    notes: In-memory prompt registry for tests.
+
+  - key: prompt_registry.file-or-db-shaped
+    technology: local-file-or-db-shaped-store
+    ownership: repository-local
+    notes: Local prompt selection semantics before durable adapter implementation.
+
+adapters:
+  - key: prompt_registry.memory-adapter
+    path: packages/ai
+    notes: InMemoryPromptRegistry supports explicit version selection and latest default.
+
+resource_entities:
+  - key: prompt-version
+    purpose: Versioned prompt template selected for an AI invocation.

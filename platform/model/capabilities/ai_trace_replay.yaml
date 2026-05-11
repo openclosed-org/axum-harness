@@ -1,0 +1,65 @@
+key: ai_trace_replay
+kind: ai_capability
+description: >
+  AI trace and replay capability for debugging agent behavior and provider
+  outcomes. Trace records must redact sensitive metadata and correlate prompt,
+  model, provider request, token usage, and denial/failure outcomes.
+
+states:
+  disabled:
+    supported: true
+    default_provider: ai_trace_replay.disabled
+    semantic_limits:
+      - no trace is retained outside the invocation result
+    evidence: tested
+
+  local_mock:
+    supported: true
+    default_provider: ai_trace_replay.in-memory
+    semantic_limits:
+      - process-local trace store only
+      - development and tests only
+    evidence: tested
+
+  local_real:
+    supported: true
+    default_provider: ai_trace_replay.local-store
+    semantic_limits:
+      - trace shape is tested
+      - durable replay store is not implemented yet
+    evidence: tested
+
+  external_single_node:
+    supported: false
+    reason: durable trace/replay store and provider replay tooling are not implemented yet.
+    evidence: declared
+
+  external_distributed:
+    supported: false
+    reason: distributed trace collection and replay consistency are not implemented yet.
+    evidence: declared
+
+providers:
+  - key: ai_trace_replay.disabled
+    technology: none
+    ownership: repository-local
+    notes: Trace replay disabled.
+
+  - key: ai_trace_replay.in-memory
+    technology: in-memory
+    ownership: repository-local
+    notes: In-memory trace store for tests.
+
+  - key: ai_trace_replay.local-store
+    technology: local-store-shaped
+    ownership: repository-local
+    notes: Local trace shape before durable adapter implementation.
+
+adapters:
+  - key: ai_trace_replay.memory-adapter
+    path: packages/ai
+    notes: InMemoryAiTraceStore and AiTraceEvent shape.
+
+resource_entities:
+  - key: ai-trace-event
+    purpose: Redacted trace event for AI invocation replay and debugging.

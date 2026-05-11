@@ -1,0 +1,59 @@
+key: token_metering
+kind: ai_capability
+description: >
+  Token metering capability for AI provider usage. Token events feed the shared
+  usage_metering and quota_credits paths instead of living only in logs.
+
+states:
+  disabled:
+    supported: true
+    default_provider: token_metering.disabled
+    semantic_limits:
+      - token events are not recorded when AI invocation is disabled
+    evidence: tested
+
+  local_mock:
+    supported: true
+    default_provider: token_metering.usage-meter
+    semantic_limits:
+      - in-memory usage meter in tests
+      - no provider export
+    evidence: tested
+
+  local_real:
+    supported: true
+    default_provider: token_metering.usage-meter
+    semantic_limits:
+      - reuses usage_metering ledger semantics
+      - durable provider-specific export is not implemented yet
+    evidence: tested
+
+  external_single_node:
+    supported: false
+    reason: external provider token reconciliation and export adapter is not implemented yet.
+    evidence: declared
+
+  external_distributed:
+    supported: false
+    reason: distributed token metering reconciliation is not implemented yet.
+    evidence: declared
+
+providers:
+  - key: token_metering.disabled
+    technology: none
+    ownership: repository-local
+    notes: Token metering disabled with AI invocation disabled.
+
+  - key: token_metering.usage-meter
+    technology: usage_metering-port
+    ownership: repository-local
+    notes: Token usage is recorded through the shared UsageMeter port.
+
+adapters:
+  - key: token_metering.usage-adapter
+    path: packages/ai
+    notes: AiInvocationService records llm.tokens usage events from provider response token counts.
+
+resource_entities:
+  - key: token-usage-event
+    purpose: AI token usage event recorded through usage metering.

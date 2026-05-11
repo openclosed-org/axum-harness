@@ -70,6 +70,7 @@ members = [
     "packages/authz",
     # Commercial capability seams
     "packages/commercial",
+    "packages/ai",
     "packages/bot-channel",
     "packages/governance",
     "packages/notification",
@@ -168,6 +169,7 @@ adapter-google-backend = { path = "packages/authn/adapters/google-backend", vers
 authn-oidc-verifier = { path = "packages/authn/oidc-verifier", version = "0.1.0" }
 authz = { path = "packages/authz", version = "0.1.0" }
 commercial = { path = "packages/commercial", version = "0.1.0" }
+ai = { path = "packages/ai", version = "0.1.0" }
 bot-channel = { path = "packages/bot-channel", version = "0.1.0" }
 governance = { path = "packages/governance", version = "0.1.0" }
 notification = { path = "packages/notification", version = "0.1.0" }

@@ -45,6 +45,108 @@
   resource_entities:
   - key: admin-operation
     purpose: Protected administrative mutation request handled through service-preserving use cases.
+- key: ai_tool_permissions
+  kind: ai_capability
+  description: |
+    AI tool permission capability. Tool access is a security boundary integrated with entitlement and policy checks, not a UI preference.
+  states:
+    disabled:
+      default_provider: ai_tool_permissions.deny-all
+      evidence: tested
+      semantic_limits:
+      - tool calls are denied unless a policy is configured
+      supported: true
+    external_distributed:
+      evidence: declared
+      reason: distributed tool policy propagation and audit semantics are not implemented yet.
+      supported: false
+    external_single_node:
+      evidence: declared
+      reason: external authz-backed tool policy adapter is not implemented yet.
+      supported: false
+    local_mock:
+      default_provider: ai_tool_permissions.static-allow-list
+      evidence: tested
+      semantic_limits:
+      - static allow-list only
+      - development and tests only
+      supported: true
+    local_real:
+      default_provider: ai_tool_permissions.static-allow-list
+      evidence: tested
+      semantic_limits:
+      - local policy semantics only
+      - durable authz-backed policy adapter is not implemented yet
+      supported: true
+  providers:
+  - key: ai_tool_permissions.deny-all
+    notes: Default deny behavior for tool calls.
+    ownership: repository-local
+    technology: none
+  - key: ai_tool_permissions.static-allow-list
+    notes: Static tool allow-list for local tests and development.
+    ownership: repository-local
+    technology: static-config
+  adapters:
+  - key: ai_tool_permissions.static-adapter
+    notes: StaticToolPermissionPolicy checks requested tools before provider invocation.
+    path: packages/ai
+  resource_entities:
+  - key: ai-tool-policy
+    purpose: Runtime policy for AI tool access.
+- key: ai_trace_replay
+  kind: ai_capability
+  description: |
+    AI trace and replay capability for debugging agent behavior and provider outcomes. Trace records must redact sensitive metadata and correlate prompt, model, provider request, token usage, and denial/failure outcomes.
+  states:
+    disabled:
+      default_provider: ai_trace_replay.disabled
+      evidence: tested
+      semantic_limits:
+      - no trace is retained outside the invocation result
+      supported: true
+    external_distributed:
+      evidence: declared
+      reason: distributed trace collection and replay consistency are not implemented yet.
+      supported: false
+    external_single_node:
+      evidence: declared
+      reason: durable trace/replay store and provider replay tooling are not implemented yet.
+      supported: false
+    local_mock:
+      default_provider: ai_trace_replay.in-memory
+      evidence: tested
+      semantic_limits:
+      - process-local trace store only
+      - development and tests only
+      supported: true
+    local_real:
+      default_provider: ai_trace_replay.local-store
+      evidence: tested
+      semantic_limits:
+      - trace shape is tested
+      - durable replay store is not implemented yet
+      supported: true
+  providers:
+  - key: ai_trace_replay.disabled
+    notes: Trace replay disabled.
+    ownership: repository-local
+    technology: none
+  - key: ai_trace_replay.in-memory
+    notes: In-memory trace store for tests.
+    ownership: repository-local
+    technology: in-memory
+  - key: ai_trace_replay.local-store
+    notes: Local trace shape before durable adapter implementation.
+    ownership: repository-local
+    technology: local-store-shaped
+  adapters:
+  - key: ai_trace_replay.memory-adapter
+    notes: InMemoryAiTraceStore and AiTraceEvent shape.
+    path: packages/ai
+  resource_entities:
+  - key: ai-trace-event
+    purpose: Redacted trace event for AI invocation replay and debugging.
 - key: audit_log
   kind: governance_capability
   description: |
@@ -653,6 +755,59 @@
   resource_entities:
   - key: inbound-webhook-ledger
     purpose: Durable idempotency and replay record for inbound provider events.
+- key: llm_provider
+  kind: ai_capability
+  description: |
+    LLM provider capability. Business code depends on local AI ports and usage projections; OpenAI, Anthropic, Gemini, or other provider SDKs must remain behind adapters and composition roots.
+  states:
+    disabled:
+      default_provider: llm_provider.disabled
+      evidence: tested
+      semantic_limits:
+      - AI invocation is denied before provider calls
+      supported: true
+    external_distributed:
+      evidence: declared
+      reason: distributed AI routing, provider failover, and replay semantics are not implemented yet.
+      supported: false
+    external_single_node:
+      evidence: declared
+      reason: real external LLM provider adapter is not implemented yet.
+      supported: false
+    local_mock:
+      default_provider: llm_provider.mock
+      evidence: tested
+      semantic_limits:
+      - deterministic mocked provider response
+      - development and tests only
+      supported: true
+    local_real:
+      default_provider: llm_provider.local-port
+      evidence: tested
+      semantic_limits:
+      - framework-neutral port and local prompt/tool/trace shape only
+      - no real provider transport is implemented yet
+      supported: true
+  providers:
+  - key: llm_provider.disabled
+    notes: LLM invocation disabled.
+    ownership: repository-local
+    technology: none
+  - key: llm_provider.mock
+    notes: Mocked provider contract for tests.
+    ownership: repository-local
+    technology: in-memory-mock
+  - key: llm_provider.local-port
+    notes: Local AI invocation service with entitlement, quota, metering, prompt, tool permission, and trace seams.
+    ownership: repository-local
+    technology: framework-neutral-port
+  adapters:
+  - key: llm_provider.mock-adapter
+    notes: MockLlmProvider and AiInvocationService reference seam.
+    path: packages/ai
+  resource_entities:
+  - key: ai-invocation
+    purpose: AI invocation request, response, token usage, and trace correlation entity.
 - key: notification
   kind: growth_capability
   description: |
@@ -867,6 +1022,53 @@
   resource_entities:
   - key: product-event-stream
     purpose: Server-side product behavior event stream.
+- key: prompt_registry
+  kind: ai_capability
+  description: |
+    Prompt registry capability for versioned prompts that affect paid or user-visible AI behavior.
+  states:
+    disabled:
+      evidence: declared
+      reason: AI invocation requires a selected prompt when llm_provider is enabled.
+      supported: false
+    external_distributed:
+      evidence: declared
+      reason: distributed prompt publishing, approval, and rollout semantics are not implemented yet.
+      supported: false
+    external_single_node:
+      evidence: declared
+      reason: external prompt registry or durable single-node adapter is not implemented yet.
+      supported: false
+    local_mock:
+      default_provider: prompt_registry.in-memory
+      evidence: tested
+      semantic_limits:
+      - process-local prompt versions only
+      - development and tests only
+      supported: true
+    local_real:
+      default_provider: prompt_registry.file-or-db-shaped
+      evidence: tested
+      semantic_limits:
+      - local version-selection semantics are tested
+      - durable file or DB adapter is not implemented yet
+      supported: true
+  providers:
+  - key: prompt_registry.in-memory
+    notes: In-memory prompt registry for tests.
+    ownership: repository-local
+    technology: in-memory
+  - key: prompt_registry.file-or-db-shaped
+    notes: Local prompt selection semantics before durable adapter implementation.
+    ownership: repository-local
+    technology: local-file-or-db-shaped-store
+  adapters:
+  - key: prompt_registry.memory-adapter
+    notes: InMemoryPromptRegistry supports explicit version selection and latest default.
+    path: packages/ai
+  resource_entities:
+  - key: prompt-version
+    purpose: Versioned prompt template selected for an AI invocation.
 - key: quota_credits
   kind: commercial_capability
   description: |
@@ -977,6 +1179,55 @@
   resource_entities:
   - key: telegram-channel
     purpose: Planned Telegram command and event channel identity.
+- key: token_metering
+  kind: ai_capability
+  description: |
+    Token metering capability for AI provider usage. Token events feed the shared usage_metering and quota_credits paths instead of living only in logs.
+  states:
+    disabled:
+      default_provider: token_metering.disabled
+      evidence: tested
+      semantic_limits:
+      - token events are not recorded when AI invocation is disabled
+      supported: true
+    external_distributed:
+      evidence: declared
+      reason: distributed token metering reconciliation is not implemented yet.
+      supported: false
+    external_single_node:
+      evidence: declared
+      reason: external provider token reconciliation and export adapter is not implemented yet.
+      supported: false
+    local_mock:
+      default_provider: token_metering.usage-meter
+      evidence: tested
+      semantic_limits:
+      - in-memory usage meter in tests
+      - no provider export
+      supported: true
+    local_real:
+      default_provider: token_metering.usage-meter
+      evidence: tested
+      semantic_limits:
+      - reuses usage_metering ledger semantics
+      - durable provider-specific export is not implemented yet
+      supported: true
+  providers:
+  - key: token_metering.disabled
+    notes: Token metering disabled with AI invocation disabled.
+    ownership: repository-local
+    technology: none
+  - key: token_metering.usage-meter
+    notes: Token usage is recorded through the shared UsageMeter port.
+    ownership: repository-local
+    technology: usage_metering-port
+  adapters:
+  - key: token_metering.usage-adapter
+    notes: AiInvocationService records llm.tokens usage events from provider response token counts.
+    path: packages/ai
+  resource_entities:
+  - key: token-usage-event
+    purpose: AI token usage event recorded through usage metering.
 - key: usage_metering
   kind: commercial_capability
   description: |
@@ -1035,3 +1286,50 @@
   resource_entities:
   - key: usage-ledger
     purpose: Append-only product usage event ledger.
+- key: vector_search
+  kind: ai_capability
+  description: |
+    Vector search capability for optional RAG retrieval. This phase declares the capability and provider choices before runtime implementation.
+  states:
+    disabled:
+      default_provider: vector_search.disabled
+      evidence: declared
+      semantic_limits:
+      - RAG/vector retrieval is unavailable
+      supported: true
+    external_distributed:
+      evidence: declared
+      reason: distributed vector search topology and replay semantics are not implemented yet.
+      supported: false
+    external_single_node:
+      evidence: declared
+      reason: external single-node vector provider adapter is not implemented yet.
+      supported: false
+    local_mock:
+      evidence: declared
+      reason: no vector search mock adapter is implemented yet.
+      supported: false
+    local_real:
+      evidence: declared
+      reason: local vector index adapter is not implemented yet.
+      supported: false
+  providers:
+  - key: vector_search.disabled
+    notes: Vector search disabled.
+    ownership: repository-local
+    technology: none
+  - key: vector_search.qdrant
+    notes: Planned optional vector search provider.
+    ownership: optional-resource-container-or-managed
+    technology: qdrant
+  - key: vector_search.meilisearch
+    notes: Planned optional search/vector provider lane.
+    ownership: optional-resource-container-or-managed
+    technology: meilisearch
+  adapters:
+  - key: vector_search.planned-adapter
+    notes: Runtime vector search adapter is intentionally not implemented in Phase 6.
+    path: packages/ai
+  resource_entities:
+  - key: vector-index
+    purpose: Optional RAG/vector retrieval index.
