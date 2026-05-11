@@ -68,3 +68,7 @@ setup-coverage:
 # 检查工具链版本
 toolchain-check:
     cargo run -p repo-tools -- toolchain-check
+
+# internal helper: require a local binary before running a dependent recipe
+_require TOOL CMD:
+    cargo run -p repo-tools -- require-tool "{{TOOL}}" "{{CMD}}"

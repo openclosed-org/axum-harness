@@ -42,11 +42,11 @@
 3. `infra/local/README.md`
 4. `docs/operations/gate-profiles.md`
 5. `docs/operations/advanced-topology/k3d-local.md`
-6. `justfiles/dev.just`
-7. `justfiles/gates.just`
-8. `justfiles/k3d.just`
-9. `justfiles/sops.just`
-10. `justfiles/ops.just`
+6. `justfiles/core/dev.just`
+7. `justfiles/quality/gates.just`
+8. `justfiles/ops/k3d.just`
+9. `justfiles/ops/sops.just`
+10. `justfiles/ops/deploy.just`
 11. `infra/docker/compose/core.yaml`
 
 ## 2.1 平台前置条件
@@ -54,7 +54,7 @@
 当前仓库的本地后端主链并不是“所有命令在三平台纯原生完全等价”。更准确的理解是：
 
 1. macOS / Linux：默认支持 `just` / `moon` / `cargo` 与本地容器 runtime。
-2. Windows：Rust / Bun / Node / just / moon 本身可以原生运行；`repo-tools infra local ...` 不要求 Git Bash/WSL，但仍需要 Docker Desktop 或 Podman Desktop。
+2. Windows：Rust / just / moon 本身可以原生运行；`repo-tools infra local ...` 不要求 Git Bash/WSL，但仍需要 Docker Desktop 或 Podman Desktop。
 3. Linux host 专属操作，例如 k3s bootstrap apply、VPS bootstrap apply、systemd deploy，不是 Windows 桌面命令。
 
 当前已经确认的现实约束：
@@ -78,7 +78,7 @@ just doctor-full
 
 这些命令比手写安装步骤更接近当前仓库的真实入口。
 
-可选 app shell 依赖从 app 自己的作用域安装，例如 `bun install --cwd apps/web`。
+本仓库不再安装前端 app shell 依赖；前端仓库自行选择 package manager 和验证入口。
 
 ### 3.2 启动基础依赖
 
@@ -136,16 +136,16 @@ just auth-down
 其中：
 
 1. `just dev-api` 是更贴近后端默认视角的入口之一。
-2. root backend-core contract 不再暴露前端或桌面壳层入口。
+2. root backend-core contract 不暴露前端或桌面壳层入口。
 3. `just auth-bootstrap` 会把本地 `Rauthy/OpenFGA` 起起来，并生成 generic `APP_OIDC_*` / `APP_AUTHZ_*` 到 `infra/local/generated/auth.env` 供 `web-bff` 直接读取。
 4. `just check-backend-primary` / `just test-backend-primary` 对应默认后端 admission lane。
 5. `just verify-auth-optional` / `just test-auth-optional` 仅在 auth lane 变更时需要额外运行。
 
 补充约束：
 
-1. 如果你的任务不涉及 `apps/desktop/**`，不要把 Tauri 当成必须前置条件。
-2. 如果你的任务涉及桌面壳层，请在对应 shell 自己的目录和命令面上验证，不要把这些要求带回 root backend-core contract。
-3. 不要假设 Ubuntu CI 能替代 macOS / Windows 桌面行为。
+1. 不要把前端 package manager、桌面 shell 或浏览器 e2e 当成本仓库后端开发前置条件。
+2. 前端、桌面、移动和 admin shell 在独立仓库验证，通过 OpenAPI 或 SDK 消费本仓库后端契约。
+3. 不要把前端仓库的 package manager 或 e2e gate 带回 root backend-core contract。
 
 ### 3.3.1 本地存储和缓存维护
 
@@ -164,7 +164,7 @@ just clean-local-storage
 不会自动删除：
 
 1. Compose volumes，例如 MinIO、Valkey、NATS、OpenFGA 本地状态。
-2. 全局 mise、Bun、Node、Cargo registry 缓存。
+2. 全局 mise 和 Cargo registry 缓存。
 3. SOPS、age、Kubernetes 或 GitOps 相关本地状态。
 
 如果确实要删除本地 compose volumes，必须显式使用对应 infra 命令和 destructive flag，例如：
@@ -315,7 +315,7 @@ podman machine start podman-machine-default
 
 ### 3.3.5 后端优先的最小调试模式
 
-如果当前任务只围绕后端接口、tenant flow、counter flow，而不希望被 `web` / `tauri` / 本地 OIDC provider 阻塞，可以直接使用：
+如果当前任务只围绕后端接口、tenant flow、counter flow，而不希望被本地 OIDC provider 阻塞，可以直接使用：
 
 ```bash
 export APP_DATABASE_URL=file:./.data/web-bff.db

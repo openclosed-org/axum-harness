@@ -7,7 +7,7 @@
 1. `repo-tools infra local ...`：默认本地基础设施入口。
 2. `repo-tools infra auth ...`：本地 auth 栈入口。
 3. `../../docs/operations/local-dev.md`：本地开发主说明。
-4. `../../justfiles/sops.just`：本地 secrets 注入默认入口。
+4. `../../justfiles/ops/sops.just`：本地 secrets 注入默认入口。
 
 ## 常用命令
 

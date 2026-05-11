@@ -4,7 +4,7 @@
 template-init profile='backend-core' mode='dry-run':
     cargo run -p repo-tools -- template-init --profile "{{profile}}" --mode "{{mode}}"
 
-# Verify the default backend-core lane is independent from optional app shells.
+# Verify the default backend-core lane is independent from frontend repositories.
 audit-backend-core mode='dry-run':
     cargo run -p repo-tools -- audit-backend-core "{{mode}}"
 

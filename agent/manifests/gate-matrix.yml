@@ -169,7 +169,7 @@ gates:
     label: Release gate
     strength: invariant
     scope: release
-    note: Includes SemVer compatibility when a baseline tag exists, contract drift, backend-core app-shell audit, CI gate, and release build. Defaults to RELEASE_TYPE=minor; set RELEASE_TYPE=major for intentional breaking releases.
+    note: Includes SemVer compatibility when a baseline tag exists, contract drift, backend-only audit, CI gate, and release build. Defaults to RELEASE_TYPE=minor; set RELEASE_TYPE=major for intentional breaking releases.
 
 path_rules:
   - match:
@@ -189,7 +189,6 @@ path_rules:
       - Justfile
       - justfiles/**
       - moon.yml
-      - package.json
     recommended:
       - boundary_check
       - typecheck
@@ -198,9 +197,9 @@ path_rules:
     note: Shared tooling can affect the backend-core lane; prefer scoped checks before repo-wide verify.
 
   - match:
-      - justfiles/gates.just
-      - justfiles/k3d.just
-      - justfiles/multipass.just
+      - justfiles/quality/gates.just
+      - justfiles/ops/k3d.just
+      - justfiles/ops/multipass.just
       - docs/operations/gate-profiles.md
       - docs/operations/advanced-topology/k3d-local.md
       - docs/operations/advanced-topology/k3s-local-multipass.md
@@ -312,13 +311,6 @@ path_rules:
       - boundary_check
     required: []
     note: Run the specific verification lane being changed.
-
-  - match:
-      - apps/**
-      - packages/ui/**
-    recommended: []
-    required: []
-    note: App shells use their own local command surface; root backend-core gates should not depend on them by default.
 
 risk_rules:
   contract_compatibility:

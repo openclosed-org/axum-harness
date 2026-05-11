@@ -60,14 +60,10 @@ pub(crate) fn audit_backend_core(args: AuditBackendCoreArgs) -> Result<()> {
     println!("=== Backend Core Audit ===");
     println!("mode: {}", args.mode.label());
     println!("scope: root backend-core contract");
-    println!(
-        "simulated removal: root just/moon/scripts must stay free of apps/** and packages/ui/** references"
-    );
+    println!("scope: backend-only root command contract");
 
     if findings.is_empty() {
-        println!(
-            "\nPASS: root backend-core contract is free of apps/** and packages/ui/** references."
-        );
+        println!("\nPASS: root backend-core contract is free of frontend shell references.");
         println!("Next proof command: just verify");
         return Ok(());
     }
@@ -223,16 +219,11 @@ fn template_plan(profile: TemplateProfile) -> TemplatePlan {
                 "infra/**",
                 "Justfile",
                 "moon.yml",
-                "justfiles/setup.just",
-                "justfiles/dev.just",
-                "justfiles/build.just",
-                "justfiles/verify.just",
-                "justfiles/ops.just",
-                "justfiles/clean.just",
-                "justfiles/platform.just",
-                "justfiles/sops.just",
-                "justfiles/template.just",
-                "justfiles/skills.just",
+                "justfiles/core/**",
+                "justfiles/quality/**",
+                "justfiles/domains/**",
+                "justfiles/ops/**",
+                "justfiles/agent/**",
                 "tools/repo-tools/**",
             ],
             review: &[
@@ -244,8 +235,6 @@ fn template_plan(profile: TemplateProfile) -> TemplatePlan {
                 "services/tenant-service/**",
             ],
             remove_candidates: &[
-                "apps/**",
-                "packages/ui/**",
                 "verification/e2e/**",
                 "docs/governance/**",
                 "docs/archive/**",
@@ -256,11 +245,6 @@ fn template_plan(profile: TemplateProfile) -> TemplatePlan {
                 ".github/ISSUE_TEMPLATE/**",
                 ".github/pull_request_template.md",
             ],
-        },
-        TemplateProfile::BackendDesktop => TemplatePlan {
-            keep: &["everything in backend-core", "apps/desktop/**"],
-            review: &["agent/**", "docs/architecture/**", "docs/archive/**"],
-            remove_candidates: &["agent/**", "docs/architecture/**"],
         },
         TemplateProfile::FullResearch => TemplatePlan {
             keep: &["entire repository"],
@@ -355,15 +339,18 @@ fn backend_entry_files() -> &'static [&'static str] {
         ".moon/workspace.yml",
         "moon.yml",
         "Justfile",
-        "justfiles/setup.just",
-        "justfiles/build.just",
-        "justfiles/dev.just",
-        "justfiles/verify.just",
-        "justfiles/ops.just",
-        "justfiles/platform.just",
-        "justfiles/sops.just",
-        "justfiles/template.just",
-        "justfiles/skills.just",
+        "justfiles/core/setup.just",
+        "justfiles/core/build.just",
+        "justfiles/core/dev.just",
+        "justfiles/core/clean.just",
+        "justfiles/quality/verify.just",
+        "justfiles/quality/gates.just",
+        "justfiles/domains/backend.just",
+        "justfiles/domains/contracts.just",
+        "justfiles/domains/platform.just",
+        "justfiles/ops/deploy.just",
+        "justfiles/ops/sops.just",
+        "justfiles/agent/template.just",
     ]
 }
 
@@ -375,7 +362,6 @@ fn forbidden_needles() -> &'static [&'static str] {
         "apps/browser-extension",
         "packages/ui",
         "web:",
-        "desktop-tauri:",
         "apps/client",
     ]
 }
@@ -420,8 +406,11 @@ mod tests {
     fn backend_core_template_plan_uses_current_justfile_modules() {
         let plan = template_plan(TemplateProfile::BackendCore);
 
-        assert!(plan.keep.contains(&"justfiles/build.just"));
-        assert!(plan.keep.contains(&"justfiles/verify.just"));
+        assert!(plan.keep.contains(&"justfiles/core/**"));
+        assert!(plan.keep.contains(&"justfiles/quality/**"));
+        assert!(plan.keep.contains(&"justfiles/domains/**"));
+        assert!(plan.keep.contains(&"justfiles/ops/**"));
+        assert!(plan.keep.contains(&"justfiles/agent/**"));
         assert!(plan.keep.contains(&"tools/repo-tools/**"));
         assert!(!plan.keep.contains(&"justfiles/test.just"));
         assert!(!plan.keep.contains(&"justfiles/quality.just"));

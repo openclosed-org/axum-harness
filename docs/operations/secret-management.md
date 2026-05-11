@@ -25,12 +25,12 @@
 主要文件：
 
 1. `.sops.yaml`
-2. `justfiles/sops.just`
+2. `justfiles/ops/sops.just`
 
 当前已确认的事实：
 
 1. `.sops.yaml` 已定义本机 plaintext secret 输入、`dev/`、`staging/`、`prod/` 的创建规则。
-2. `justfiles/sops.just` 已把仓库 secret shape 写成 `SOPS + age`，并明确说明后端参考路径不来自 `.env`。
+2. `justfiles/ops/sops.just` 已把仓库 secret shape 写成 `SOPS + age`，并明确说明后端参考路径不来自 `.env`。
 3. 当前建议的命令入口是 `just sops-gen-age-key`、`just sops-edit`、`just sops-encrypt-dev`、`just sops-run`、`just sops-export-env`、`just sops-reconcile`。
 
 ### 2.2 与 counter 参考链直接相关的模板

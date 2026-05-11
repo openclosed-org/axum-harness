@@ -56,3 +56,55 @@ verify-surrealdb-compose-persistence CLEANUP='keep-volume':
     bash -lc 'for i in {1..30}; do surreal is-ready --endpoint http://localhost:8000 && exit 0; sleep 2; done; exit 1'
     printf "SELECT * FROM persistence_probe:compose;\n" | surreal sql --endpoint http://localhost:8000 --user root --pass root --ns axh --db main --pretty --hide-welcome | grep "survives-compose-restart"
     @if [ "{{CLEANUP}}" = "volumes" ]; then podman compose -f infra/docker/compose/core.yaml --profile surrealdb down --volumes; else podman compose -f infra/docker/compose/core.yaml --profile surrealdb down; fi
+
+# Local gate: strict mode blocks commits that violate boundaries
+gate-local:
+    cargo run -p repo-tools -- gate local --mode strict
+
+# Pre-push gate: strict mode blocks pushes that fail quality gates
+gate-prepush:
+    cargo run -p repo-tools -- gate prepush --mode strict
+
+# Phase 1 existence/import validation gate
+gate-existence MODE='warn':
+    cargo run -p repo-tools -- validate-existence --mode {{MODE}}
+
+# Phase 1 import dependency validation gate
+gate-imports MODE='warn':
+    cargo run -p repo-tools -- validate-imports --mode {{MODE}}
+
+# Phase 0B package publish intent validation gate
+validate-publish-intent MODE='warn':
+    cargo run -p repo-tools -- validate-publish-intent --mode {{MODE}}
+
+# Shared contracts vs service-local event boundary gate
+gate-contract-boundaries MODE='warn':
+    cargo run -p repo-tools -- validate-contract-boundaries --mode {{MODE}}
+
+# CI gate
+gate-ci:
+    cargo run -p repo-tools -- gate ci --mode strict
+
+# Release gate
+gate-release:
+    cargo run -p repo-tools -- gate release --mode strict
+
+# Gate guidance: show path/risk/evidence guidance for an agent scope
+gate-guidance AGENT:
+    cargo run -p repo-tools -- gate-guidance {{AGENT}}
+
+# Handoff verification: boundary check plus gate-selection guidance
+verify-handoff AGENT:
+    cargo run -p repo-tools -- verify-handoff {{AGENT}}
+
+# Worker resilience declaration/code evidence check
+validate-resilience MODE='warn':
+    cargo run -p repo-tools -- validate-resilience --mode {{MODE}}
+
+# 生成目录分类索引（Agent 搜索优先级提示）
+gen-dir-cats:
+    cargo run -p repo-tools -- gen-directory-categories
+
+# k6 基线压测（默认连接 localhost:3010，可自定义 BASE_URL）
+k6-baseline BASE_URL='http://localhost:3010' DURATION='30s' VUS='5':
+    cargo run -p repo-tools -- k6-baseline --base-url {{BASE_URL}} --duration {{DURATION}} --vus {{VUS}}

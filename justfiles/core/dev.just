@@ -13,10 +13,6 @@ dev:
 dev-api:
     moon run repo:dev-api
 
-# 启动可选桌面开发栈（web-bff + Tauri + SvelteKit）
-dev-desktop ARGS='':
-    cargo run -p repo-tools -- apps dev-desktop {{ARGS}}
-
 # 启动本地轻量资源 preset。默认不启动重资源容器。
 deploy-dev:
     @echo "Starting local lite resource preset..."
