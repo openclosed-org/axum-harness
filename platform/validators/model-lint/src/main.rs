@@ -579,6 +579,9 @@ fn check_topology_capability_bindings(
             let provider = binding.get("provider").and_then(|value| value.as_str());
             let resource = binding.get("resource").and_then(|value| value.as_str());
             let adapter = binding.get("adapter").and_then(|value| value.as_str());
+            let secret_binding = binding
+                .get("secret_binding")
+                .and_then(|value| value.as_str());
 
             if let Some(state_name) = state_name {
                 match capability.states.get(state_name) {
@@ -656,6 +659,21 @@ fn check_topology_capability_bindings(
                     ));
                 }
             }
+
+            if let Some(secret_binding) = secret_binding
+                && let Some(reason) = secret_binding_name_error(
+                    secret_binding,
+                    yaml.get("name")
+                        .and_then(|value| value.as_str())
+                        .unwrap_or(""),
+                    provider,
+                )
+            {
+                errors.push(format!(
+                    "secret_binding '{}' must not encode state/topology/provider facts: {}",
+                    secret_binding, reason
+                ));
+            }
         }
 
         if !errors.is_empty() {
@@ -729,6 +747,48 @@ fn contains_reserved_resource_word(value: &str) -> bool {
             "shared" | "external" | "local" | "mock" | "real" | "distributed"
         )
     })
+}
+
+fn secret_binding_name_error(
+    secret_binding: &str,
+    topology_name: &str,
+    provider: Option<&str>,
+) -> Option<String> {
+    let secret_parts = token_parts(secret_binding).collect::<BTreeSet<_>>();
+    if secret_parts.iter().any(|part| is_state_like_token(part)) {
+        return Some("state-like token is part of stable secret identity".to_string());
+    }
+
+    if !topology_name.is_empty() {
+        let topology_parts = token_parts(topology_name).collect::<BTreeSet<_>>();
+        if let Some(part) = topology_parts.intersection(&secret_parts).next() {
+            return Some(format!(
+                "topology token '{part}' is part of stable secret identity"
+            ));
+        }
+    }
+
+    if let Some(provider) = provider {
+        let provider_parts = token_parts(provider).collect::<BTreeSet<_>>();
+        if let Some(part) = provider_parts.intersection(&secret_parts).next() {
+            return Some(format!(
+                "provider token '{part}' is part of stable secret identity"
+            ));
+        }
+    }
+
+    None
+}
+
+fn token_parts(value: &str) -> impl Iterator<Item = &str> {
+    value.split(['-', '_', '.']).filter(|part| !part.is_empty())
+}
+
+fn is_state_like_token(value: &str) -> bool {
+    matches!(
+        value,
+        "disabled" | "local" | "mock" | "real" | "external" | "single" | "node" | "distributed"
+    )
 }
 
 #[derive(Debug, Deserialize)]
@@ -823,4 +883,34 @@ fn print_json_report(results: &[ValidationResult], passed: usize, failed: usize,
     });
 
     println!("{}", serde_json::to_string_pretty(&report).unwrap());
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn secret_binding_name_rejects_state_topology_and_provider_tokens() {
+        assert!(secret_binding_name_error("billing-local-secret", "single-vps", None).is_some());
+        assert!(secret_binding_name_error("web-bff-single-secret", "single-vps", None).is_some());
+        assert!(
+            secret_binding_name_error("creem-webhook-secret", "single-vps", Some("billing.creem"))
+                .is_some()
+        );
+    }
+
+    #[test]
+    fn secret_binding_name_allows_stable_entity_identity() {
+        assert!(
+            secret_binding_name_error("web-bff", "single-vps", Some("billing.creem")).is_none()
+        );
+        assert!(
+            secret_binding_name_error(
+                "counter-db-credentials",
+                "single-vps",
+                Some("database.turso-cloud")
+            )
+            .is_none()
+        );
+    }
 }
