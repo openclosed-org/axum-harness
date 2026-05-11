@@ -104,9 +104,9 @@ async fn mutate_counter(
     )
     .await?;
 
-    let reservation = state
+    let commercial_guard = state
         .commercial()
-        .reserve_counter_write(tenant_id.as_str(), request_context.user_sub())
+        .guard_counter_write(tenant_id.as_str(), request_context.user_sub())
         .await?;
 
     let service = build_service(state)?;
@@ -133,15 +133,12 @@ async fn mutate_counter(
     let value = match value {
         Ok(value) => value,
         Err(error) => {
-            state.commercial().release_counter_write(reservation).await;
+            commercial_guard.release().await;
             return Err(map_counter_error(error));
         }
     };
 
-    state
-        .commercial()
-        .commit_counter_write(tenant_id.as_str(), request_context.user_sub(), reservation)
-        .await?;
+    commercial_guard.commit().await?;
 
     state
         .append_audit(

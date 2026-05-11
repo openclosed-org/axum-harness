@@ -99,6 +99,14 @@ pub struct CommercialReservation {
     reservation_id: Option<String>,
 }
 
+#[must_use]
+pub struct CounterWriteCommercialGuard<'a> {
+    stack: &'a CommercialStack,
+    tenant_id: String,
+    subject: String,
+    reservation: Option<CommercialReservation>,
+}
+
 impl CommercialStack {
     pub fn from_config(config: &Config, db: Option<DatabaseBackend>) -> anyhow::Result<Self> {
         let commercial_mode = config
@@ -220,6 +228,20 @@ impl CommercialStack {
         }
     }
 
+    pub async fn guard_counter_write(
+        &self,
+        tenant_id: &str,
+        subject: &str,
+    ) -> Result<CounterWriteCommercialGuard<'_>, BffError> {
+        let reservation = self.reserve_counter_write(tenant_id, subject).await?;
+        Ok(CounterWriteCommercialGuard {
+            stack: self,
+            tenant_id: tenant_id.to_string(),
+            subject: subject.to_string(),
+            reservation: Some(reservation),
+        })
+    }
+
     pub async fn commit_counter_write(
         &self,
         tenant_id: &str,
@@ -263,6 +285,64 @@ impl CommercialStack {
         {
             tracing::warn!(error = %error, "failed to release commercial quota reservation");
         }
+    }
+}
+
+impl CounterWriteCommercialGuard<'_> {
+    pub async fn commit(mut self) -> Result<(), BffError> {
+        let Some(reservation) = self.reservation.take() else {
+            return Ok(());
+        };
+        self.stack
+            .commit_counter_write(&self.tenant_id, &self.subject, reservation)
+            .await
+    }
+
+    pub async fn release(mut self) {
+        if let Some(reservation) = self.reservation.take() {
+            self.stack.release_counter_write(reservation).await;
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn counter_write_guard_releases_quota_and_skips_usage_when_service_fails() {
+        let commercial = CommercialStack::local_mock("counter.write", ["counter.write"]);
+        commercial
+            .set_counter_quota_limit_for_test("tenant-a", 1)
+            .await;
+
+        let guard = commercial
+            .guard_counter_write("tenant-a", "user-a")
+            .await
+            .unwrap();
+        guard.release().await;
+
+        assert_eq!(
+            commercial
+                .committed_counter_usage_for_test("tenant-a")
+                .await,
+            0
+        );
+        assert!(commercial.usage_events_for_test().await.is_empty());
+
+        let guard = commercial
+            .guard_counter_write("tenant-a", "user-a")
+            .await
+            .unwrap();
+        guard.commit().await.unwrap();
+
+        assert_eq!(
+            commercial
+                .committed_counter_usage_for_test("tenant-a")
+                .await,
+            1
+        );
+        assert_eq!(commercial.usage_events_for_test().await.len(), 1);
     }
 }
 
