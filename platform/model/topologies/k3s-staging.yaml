@@ -29,6 +29,10 @@ deployables:
     replicas: 1
     enabled: true
 
+  - name: outbound-delivery-worker
+    replicas: 1
+    enabled: false
+
   - name: sync-reconciler-worker
     replicas: 1
     enabled: true

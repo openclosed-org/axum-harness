@@ -515,9 +515,11 @@
       - generic provider registry is not implemented yet
       supported: true
     local_mock:
-      evidence: declared
-      reason: generic webhook fixture harness is not implemented yet.
-      supported: false
+      default_provider: inbound_webhooks.in-memory-ledger
+      evidence: tested
+      semantic_limits:
+      - framework-neutral idempotency ledger shape only; no generic HTTP route
+      supported: true
     local_real:
       evidence: declared
       reason: generic local webhook registry is not implemented yet.
@@ -531,10 +533,17 @@
     notes: Signed Creem billing webhook ingestion path.
     ownership: managed-provider
     technology: creem-webhook
+  - key: inbound_webhooks.in-memory-ledger
+    notes: Generic inbound webhook idempotency ledger shape for tests and adapters.
+    ownership: repository-local
+    technology: in-memory-ledger
   adapters:
   - key: inbound_webhooks.creem-bff-adapter
     notes: Creem webhook HTTP handler with signature verification and idempotency ledger.
     path: servers/bff/web-bff/src/handlers/billing.rs
+  - key: inbound_webhooks.ledger-adapter
+    notes: Framework-neutral inbound webhook idempotency ledger shape.
+    path: packages/notification
   resource_entities:
   - key: inbound-webhook-ledger
     purpose: Durable idempotency and replay record for inbound provider events.
@@ -557,29 +566,48 @@
       reason: email/push provider adapters are not implemented yet.
       supported: false
     local_mock:
-      evidence: declared
-      reason: notification test double and delivery outbox are not implemented yet.
-      supported: false
+      default_provider: notification.noop
+      evidence: tested
+      semantic_limits:
+      - no provider side effect; returns skipped outcome for disabled/noop development paths
+      supported: true
     local_real:
-      evidence: declared
-      reason: local notification outbox and delivery worker are not implemented yet.
-      supported: false
+      default_provider: notification.local-outbox
+      evidence: tested
+      semantic_limits:
+      - framework-neutral in-memory outbox and delivery semantics only
+      - durable DB adapter and provider transport are not implemented yet
+      supported: true
   providers:
   - key: notification.disabled
     notes: No notification delivery.
     ownership: repository-local
     technology: none
+  - key: notification.noop
+    notes: Disabled/noop notification port implementation for tests and local development.
+    ownership: repository-local
+    technology: noop
+  - key: notification.local-outbox
+    notes: Local notification outbox semantics with retry and dead-letter tests.
+    ownership: repository-local
+    technology: in-memory-delivery-outbox
   - key: notification.smtp
     notes: Planned transactional email provider lane.
     ownership: external-provider-or-resource-container
     technology: smtp
   adapters:
   - key: notification.noop-adapter
-    notes: Planned no-op notification port implementation.
+    notes: No-op notification port implementation.
     path: packages/notification
+  - key: notification.outbox-adapter
+    notes: Framework-neutral notification outbox port implementation.
+    path: packages/notification
+  - key: notification.delivery-worker
+    notes: Reference delivery worker entrypoint with noop transport composition.
+    path: workers/outbound-delivery
   resource_entities:
   - key: notification-outbox
-    purpose: Planned durable notification delivery queue.
+    purpose: Notification delivery queue; currently in-memory reference semantics only.
 - key: observability
   kind: infrastructure_capability
   description: |
@@ -649,25 +677,44 @@
       reason: external delivery worker is not implemented yet.
       supported: false
     local_mock:
-      evidence: declared
-      reason: local webhook delivery fake is not implemented yet.
-      supported: false
+      default_provider: outbound_webhooks.noop
+      evidence: tested
+      semantic_limits:
+      - no external HTTP delivery; exercises disabled/noop path only
+      supported: true
     local_real:
-      evidence: declared
-      reason: local registry, signer, retry, and dead-letter path are not implemented yet.
-      supported: false
+      default_provider: outbound_webhooks.local-signed-outbox
+      evidence: tested
+      semantic_limits:
+      - in-memory registry and outbox only; durable registry is not implemented yet
+      - delivery worker uses noop transport in its reference entrypoint
+      supported: true
   providers:
   - key: outbound_webhooks.disabled
     notes: No outbound webhook delivery.
     ownership: repository-local
     technology: none
+  - key: outbound_webhooks.noop
+    notes: Disabled/noop outbound webhook path.
+    ownership: repository-local
+    technology: noop
+  - key: outbound_webhooks.local-signed-outbox
+    notes: Local registry, HMAC signing, retry, and dead-letter semantics.
+    ownership: repository-local
+    technology: hmac-signed-in-memory-outbox
   adapters:
   - key: outbound_webhooks.noop-adapter
-    notes: Planned no-op outbound webhook port implementation.
-    path: packages/webhooks
+    notes: No-op outbound webhook mode.
+    path: packages/notification
+  - key: outbound_webhooks.outbox-adapter
+    notes: Framework-neutral outbound webhook registry and outbox publisher.
+    path: packages/notification
+  - key: outbound_webhooks.delivery-worker
+    notes: Reference delivery worker entrypoint with retry and dead-letter semantics.
+    path: workers/outbound-delivery
   resource_entities:
   - key: outbound-webhook-delivery
-    purpose: Planned registry and delivery ledger for outbound webhook attempts.
+    purpose: Registry and delivery ledger for outbound webhook attempts; currently in-memory reference semantics only.
 - key: quota_credits
   kind: commercial_capability
   description: |

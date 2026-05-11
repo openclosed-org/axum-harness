@@ -17,6 +17,7 @@ K3s Kubernetes staging environment. Mirrors production topology with reduced rep
 - ✅ indexer-worker (×1)
 - ✅ projector-worker (×1)
 - ✅ scheduler-worker (×1)
+- ⏸️ outbound-delivery-worker (×1)
 - ✅ sync-reconciler-worker (×1)
 
 ---
@@ -36,6 +37,7 @@ Local development topology. All deployables run on localhost with embedded or do
 - ⏸️ indexer-worker (×1)
 - ⏸️ projector-worker (×1)
 - ⏸️ scheduler-worker (×1)
+- ⏸️ outbound-delivery-worker (×1)
 - ⏸️ sync-reconciler-worker (×1)
 
 ---
@@ -55,6 +57,7 @@ Single VPS deployment topology. First-party Rust deployables are binary-first an
 - ⏸️ indexer-worker (×1)
 - ⏸️ projector-worker (×1)
 - ⏸️ scheduler-worker (×1)
+- ⏸️ outbound-delivery-worker (×1)
 - ⏸️ sync-reconciler-worker (×1)
 
 ---

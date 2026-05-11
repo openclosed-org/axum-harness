@@ -102,6 +102,12 @@ deployables:
     config:
       preset: standard-or-full
 
+  - name: outbound-delivery-worker
+    replicas: 1
+    enabled: false
+    config:
+      preset: commercial-or-integration
+
   - name: sync-reconciler-worker
     replicas: 1
     enabled: false

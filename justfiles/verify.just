@@ -110,7 +110,7 @@ test-app-e2e:
 
 _primary_packages := '-p kernel -p platform -p runtime -p contracts_api -p contracts_events -p contracts_errors -p adapter-telemetry-otel -p adapter-telemetry-tracing -p storage_turso -p user-service -p tenant-service -p counter-service -p event-bus -p commercial -p web-bff -p data -p observability'
 _auth_optional_packages := '-p contracts_auth -p adapter-google-backend -p auth-service -p authz'
-_secondary_packages := '-p pingora-gateway -p outbox-relay-worker -p indexer-worker -p projector-worker -p scheduler-worker -p sync-reconciler-worker -p platform-validator -p dependency-validator -p contract-drift-detector -p topology-validator -p security-validator -p observability-validator -p platform-generator'
+_secondary_packages := '-p pingora-gateway -p outbox-relay-worker -p indexer-worker -p projector-worker -p outbound-delivery-worker -p scheduler-worker -p sync-reconciler-worker -p notification -p platform-validator -p dependency-validator -p contract-drift-detector -p topology-validator -p security-validator -p observability-validator -p platform-generator'
 _alternative_fmt_packages := '-p tenant-service -p user-service -p counter-service -p web-bff -p storage_surrealdb'
 _alternative_packages := '-p tenant-service -p user-service -p counter-service -p web-bff -p storage_surrealdb --no-default-features --features web-bff/surrealdb,storage_surrealdb/http'
 
@@ -154,7 +154,7 @@ test-auth-optional:
 
 # 次级 backend / governance 测试
 test-backend-secondary:
-    cargo test -p pingora-gateway -p outbox-relay-worker -p indexer-worker -p projector-worker -p scheduler-worker -p sync-reconciler-worker -p platform-validator -p dependency-validator -p contract-drift-detector -p topology-validator -p security-validator -p observability-validator -p platform-generator -- --test-threads=4
+    cargo test -p pingora-gateway -p outbox-relay-worker -p indexer-worker -p projector-worker -p outbound-delivery-worker -p scheduler-worker -p sync-reconciler-worker -p notification -p platform-validator -p dependency-validator -p contract-drift-detector -p topology-validator -p security-validator -p observability-validator -p platform-generator -- --test-threads=4
 
 # 备选 lane 测试
 test-backend-alternative:

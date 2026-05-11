@@ -1,0 +1,38 @@
+name: outbound-delivery-worker
+type: worker
+version: 0.1.0
+description: >
+  Notification and outbound webhook delivery worker. Polls delivery outbox jobs,
+  applies retry policy, signs outbound webhook payloads, and records dead-letter
+  state when retry budget is exhausted.
+
+current_status: stub
+target_status: independent
+planned_capabilities:
+  - durable notification delivery outbox adapter
+  - durable outbound webhook registry and delivery ledger
+  - provider HTTP/email transports
+
+services: []
+
+resources: []
+
+entry_point: workers/outbound-delivery/src/main.rs
+package: outbound-delivery-worker
+independent_deploy: false
+
+health_check:
+  path: /healthz
+  port: 3036
+  interval_seconds: 10
+
+ports:
+  - 3036
+
+observability:
+  health_check:
+    endpoint: /healthz
+    interval: 10s
+  readiness_check:
+    endpoint: /readyz
+    interval: 10s

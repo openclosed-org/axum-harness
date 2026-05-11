@@ -70,6 +70,7 @@ members = [
     "packages/authz",
     # Commercial capability seams
     "packages/commercial",
+    "packages/notification",
     # Security
     "packages/security/audit",
     "packages/security/context",
@@ -91,6 +92,7 @@ members = [
     "workers/outbox-relay",
     "workers/indexer",
     "workers/projector",
+    "workers/outbound-delivery",
     "workers/scheduler",
     "workers/sync-reconciler",
     # Platform
@@ -164,6 +166,7 @@ adapter-google-backend = { path = "packages/authn/adapters/google-backend", vers
 authn-oidc-verifier = { path = "packages/authn/oidc-verifier", version = "0.1.0" }
 authz = { path = "packages/authz", version = "0.1.0" }
 commercial = { path = "packages/commercial", version = "0.1.0" }
+notification = { path = "packages/notification", version = "0.1.0" }
 security-audit = { path = "packages/security/audit", version = "0.1.0" }
 security-context = { path = "packages/security/context", version = "0.1.0" }
 security-runtime-policy = { path = "packages/security/runtime-policy", version = "0.1.0" }
@@ -257,6 +260,7 @@ moka = { version = "0.12", features = ["future"] }
 # Auth
 jsonwebtoken = { version = "10.3.0", features = ["aws_lc_rs"] }
 sha2 = "0.10"
+hmac = "0.12"
 base64 = "0.22"
 rand = "0.8"
 urlencoding = "2.1"

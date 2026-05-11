@@ -13,9 +13,11 @@ states:
     evidence: declared
 
   local_mock:
-    supported: false
-    reason: generic webhook fixture harness is not implemented yet.
-    evidence: declared
+    supported: true
+    default_provider: inbound_webhooks.in-memory-ledger
+    semantic_limits:
+      - framework-neutral idempotency ledger shape only; no generic HTTP route
+    evidence: tested
 
   local_real:
     supported: false
@@ -46,10 +48,19 @@ providers:
     ownership: managed-provider
     notes: Signed Creem billing webhook ingestion path.
 
+  - key: inbound_webhooks.in-memory-ledger
+    technology: in-memory-ledger
+    ownership: repository-local
+    notes: Generic inbound webhook idempotency ledger shape for tests and adapters.
+
 adapters:
   - key: inbound_webhooks.creem-bff-adapter
     path: servers/bff/web-bff/src/handlers/billing.rs
     notes: Creem webhook HTTP handler with signature verification and idempotency ledger.
+
+  - key: inbound_webhooks.ledger-adapter
+    path: packages/notification
+    notes: Framework-neutral inbound webhook idempotency ledger shape.
 
 resource_entities:
   - key: inbound-webhook-ledger

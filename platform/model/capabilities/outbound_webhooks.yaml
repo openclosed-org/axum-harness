@@ -12,14 +12,19 @@ states:
     evidence: declared
 
   local_mock:
-    supported: false
-    reason: local webhook delivery fake is not implemented yet.
-    evidence: declared
+    supported: true
+    default_provider: outbound_webhooks.noop
+    semantic_limits:
+      - no external HTTP delivery; exercises disabled/noop path only
+    evidence: tested
 
   local_real:
-    supported: false
-    reason: local registry, signer, retry, and dead-letter path are not implemented yet.
-    evidence: declared
+    supported: true
+    default_provider: outbound_webhooks.local-signed-outbox
+    semantic_limits:
+      - in-memory registry and outbox only; durable registry is not implemented yet
+      - delivery worker uses noop transport in its reference entrypoint
+    evidence: tested
 
   external_single_node:
     supported: false
@@ -37,11 +42,29 @@ providers:
     ownership: repository-local
     notes: No outbound webhook delivery.
 
+  - key: outbound_webhooks.noop
+    technology: noop
+    ownership: repository-local
+    notes: Disabled/noop outbound webhook path.
+
+  - key: outbound_webhooks.local-signed-outbox
+    technology: hmac-signed-in-memory-outbox
+    ownership: repository-local
+    notes: Local registry, HMAC signing, retry, and dead-letter semantics.
+
 adapters:
   - key: outbound_webhooks.noop-adapter
-    path: packages/webhooks
-    notes: Planned no-op outbound webhook port implementation.
+    path: packages/notification
+    notes: No-op outbound webhook mode.
+
+  - key: outbound_webhooks.outbox-adapter
+    path: packages/notification
+    notes: Framework-neutral outbound webhook registry and outbox publisher.
+
+  - key: outbound_webhooks.delivery-worker
+    path: workers/outbound-delivery
+    notes: Reference delivery worker entrypoint with retry and dead-letter semantics.
 
 resource_entities:
   - key: outbound-webhook-delivery
-    purpose: Planned registry and delivery ledger for outbound webhook attempts.
+    purpose: Registry and delivery ledger for outbound webhook attempts; currently in-memory reference semantics only.

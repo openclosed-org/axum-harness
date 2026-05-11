@@ -131,11 +131,7 @@ impl CommercialStack {
         };
         let fallback_allowed_capabilities =
             if config.commercial_mode.eq_ignore_ascii_case("local_dev") {
-                config
-                    .commercial_mock_allowed_capabilities
-                    .iter()
-                    .cloned()
-                    .collect::<Vec<_>>()
+                config.commercial_mock_allowed_capabilities.to_vec()
             } else {
                 Vec::new()
             };

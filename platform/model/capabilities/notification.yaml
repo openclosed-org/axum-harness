@@ -13,14 +13,19 @@ states:
     evidence: declared
 
   local_mock:
-    supported: false
-    reason: notification test double and delivery outbox are not implemented yet.
-    evidence: declared
+    supported: true
+    default_provider: notification.noop
+    semantic_limits:
+      - no provider side effect; returns skipped outcome for disabled/noop development paths
+    evidence: tested
 
   local_real:
-    supported: false
-    reason: local notification outbox and delivery worker are not implemented yet.
-    evidence: declared
+    supported: true
+    default_provider: notification.local-outbox
+    semantic_limits:
+      - framework-neutral in-memory outbox and delivery semantics only
+      - durable DB adapter and provider transport are not implemented yet
+    evidence: tested
 
   external_single_node:
     supported: false
@@ -38,6 +43,16 @@ providers:
     ownership: repository-local
     notes: No notification delivery.
 
+  - key: notification.noop
+    technology: noop
+    ownership: repository-local
+    notes: Disabled/noop notification port implementation for tests and local development.
+
+  - key: notification.local-outbox
+    technology: in-memory-delivery-outbox
+    ownership: repository-local
+    notes: Local notification outbox semantics with retry and dead-letter tests.
+
   - key: notification.smtp
     technology: smtp
     ownership: external-provider-or-resource-container
@@ -46,8 +61,16 @@ providers:
 adapters:
   - key: notification.noop-adapter
     path: packages/notification
-    notes: Planned no-op notification port implementation.
+    notes: No-op notification port implementation.
+
+  - key: notification.outbox-adapter
+    path: packages/notification
+    notes: Framework-neutral notification outbox port implementation.
+
+  - key: notification.delivery-worker
+    path: workers/outbound-delivery
+    notes: Reference delivery worker entrypoint with noop transport composition.
 
 resource_entities:
   - key: notification-outbox
-    purpose: Planned durable notification delivery queue.
+    purpose: Notification delivery queue; currently in-memory reference semantics only.
