@@ -346,9 +346,12 @@
       reason: Discord interactions or gateway adapter is not implemented yet.
       supported: false
     local_mock:
-      evidence: declared
-      reason: command fixture adapter is not implemented yet.
-      supported: false
+      default_provider: discord_bot.fixture
+      evidence: tested
+      semantic_limits:
+      - fixture command adapter only; no Discord interactions, webhook, or gateway transport
+      - commands route through guarded use-case ports with entitlement, quota, and audit checks
+      supported: true
     local_real:
       evidence: declared
       reason: local interaction adapter is not implemented yet.
@@ -362,10 +365,17 @@
     notes: Planned Discord API adapter lane.
     ownership: managed-provider
     technology: discord-api
+  - key: discord_bot.fixture
+    notes: Local fixture command adapter for channel-neutral bot command tests.
+    ownership: repository-local
+    technology: in-memory-fixture
   adapters:
   - key: discord_bot.noop-adapter
-    notes: Planned bot worker/channel adapter boundary.
-    path: workers/discord-bot
+    notes: Disabled/noop bot channel mode.
+    path: packages/bot-channel
+  - key: discord_bot.fixture-adapter
+    notes: Framework-neutral Discord fixture adapter and guarded command dispatcher.
+    path: packages/bot-channel
   resource_entities:
   - key: discord-channel
     purpose: Planned Discord command and interaction channel identity.
@@ -792,9 +802,12 @@
       reason: Telegram polling or webhook adapter is not implemented yet.
       supported: false
     local_mock:
-      evidence: declared
-      reason: command fixture adapter is not implemented yet.
-      supported: false
+      default_provider: telegram_bot.fixture
+      evidence: tested
+      semantic_limits:
+      - fixture command adapter only; no Telegram Bot API polling or webhook transport
+      - commands route through guarded use-case ports with entitlement, quota, and audit checks
+      supported: true
     local_real:
       evidence: declared
       reason: local polling adapter is not implemented yet.
@@ -808,10 +821,17 @@
     notes: Planned Telegram Bot API adapter lane.
     ownership: managed-provider
     technology: telegram-bot-api
+  - key: telegram_bot.fixture
+    notes: Local fixture command adapter for channel-neutral bot command tests.
+    ownership: repository-local
+    technology: in-memory-fixture
   adapters:
   - key: telegram_bot.noop-adapter
-    notes: Planned bot worker/channel adapter boundary.
-    path: workers/telegram-bot
+    notes: Disabled/noop bot channel mode.
+    path: packages/bot-channel
+  - key: telegram_bot.fixture-adapter
+    notes: Framework-neutral Telegram fixture adapter and guarded command dispatcher.
+    path: packages/bot-channel
   resource_entities:
   - key: telegram-channel
     purpose: Planned Telegram command and event channel identity.

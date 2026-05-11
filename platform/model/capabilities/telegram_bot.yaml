@@ -13,9 +13,12 @@ states:
     evidence: declared
 
   local_mock:
-    supported: false
-    reason: command fixture adapter is not implemented yet.
-    evidence: declared
+    supported: true
+    default_provider: telegram_bot.fixture
+    semantic_limits:
+      - fixture command adapter only; no Telegram Bot API polling or webhook transport
+      - commands route through guarded use-case ports with entitlement, quota, and audit checks
+    evidence: tested
 
   local_real:
     supported: false
@@ -43,10 +46,19 @@ providers:
     ownership: managed-provider
     notes: Planned Telegram Bot API adapter lane.
 
+  - key: telegram_bot.fixture
+    technology: in-memory-fixture
+    ownership: repository-local
+    notes: Local fixture command adapter for channel-neutral bot command tests.
+
 adapters:
   - key: telegram_bot.noop-adapter
-    path: workers/telegram-bot
-    notes: Planned bot worker/channel adapter boundary.
+    path: packages/bot-channel
+    notes: Disabled/noop bot channel mode.
+
+  - key: telegram_bot.fixture-adapter
+    path: packages/bot-channel
+    notes: Framework-neutral Telegram fixture adapter and guarded command dispatcher.
 
 resource_entities:
   - key: telegram-channel

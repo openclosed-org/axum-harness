@@ -1036,6 +1036,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "bot-channel"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "commercial",
+ "security-audit",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+ "workspace-hack",
+]
+
+[[package]]
 name = "boxcar"
 version = "0.2.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
