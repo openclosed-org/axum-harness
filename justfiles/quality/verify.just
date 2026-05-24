@@ -18,10 +18,6 @@ lint:
 typecheck:
     moon run repo:typecheck
 
-# 架构边界检查（features / contracts 依赖约束）
-boundary-check:
-    moon run repo:boundary-check
-
 # 完整质量门禁（fmt + lint + check + test）
 verify:
     moon run repo:verify

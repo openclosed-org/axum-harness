@@ -158,7 +158,7 @@ tasks:
       - 'test-hack'
 
   boundary-check:
-    command: 'cargo run -p repo-tools -- boundary-check'
+    command: 'cargo run -p repo-tools -- check boundaries'
     inputs:
       - 'Cargo.toml'
       - 'packages/*/Cargo.toml'

@@ -19,7 +19,7 @@ test-threads = "num-cpus"
 # More aggressive timeouts for CI
 retries = 0
 slow-timeout = { period = "60s", terminate-after = 5 }
-success-output = "fail"
+success-output = "never"
 failure-output = "immediate"
 
 [[profile.default.overrides]]

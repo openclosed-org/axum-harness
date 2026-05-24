@@ -26,6 +26,13 @@ import 'justfiles/quality/verify.just'
 import 'justfiles/quality/gates.just'
 import 'justfiles/quality/supply-chain.just'
 
+# check: low-risk readonly command-surface validation migrated to action taxonomy layout
+import 'justfiles/check/architecture.just'
+import 'justfiles/check/agent.just'
+
+# maintain: local report-generation audits migrated to action taxonomy layout
+import 'justfiles/maintain/audit.just'
+
 # domains: bounded architecture surfaces
 import 'justfiles/domains/backend.just'
 import 'justfiles/domains/contracts.just'
@@ -103,6 +110,9 @@ help-verify:
     @printf "  just verify-contracts warn\n"
     @printf "  just drift-check              generated contract 漂移检查\n"
     @printf "  just boundary-check           架构边界检查\n"
+    @printf "  just validate-agent-architecture strict\n"
+    @printf "  just validate-justfiles-taxonomy warn\n"
+    @printf "  just audit-inventory\n"
     @printf "  just validate-publish-intent strict\n"
     @printf "  just gate-existence MODE=warn\n"
     @printf "  just gate-ci-single-node\n"

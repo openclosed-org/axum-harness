@@ -280,7 +280,7 @@ jobs:
         run: just gate-imports strict
 
       - name: Boundary check
-        run: cargo run -p repo-tools -- boundary-check
+        run: cargo run -p repo-tools -- check boundaries
 
   supply-chain:
     name: Supply Chain Scan
