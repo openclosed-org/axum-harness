@@ -1,0 +1,296 @@
+version: 1
+status: active
+purpose: >
+  Machine-readable repository ontology for agents. This file classifies
+  repository areas before routing, refactoring, naming, or gate selection.
+
+principles:
+  - codemap_yml_is_navigation_map_not_complete_model
+  - docs_and_yaml_declare_intent_but_do_not_prove_behavior
+  - executable_evidence_beats_metadata_and_prose
+  - optional_surfaces_must_not_enter_default_backend_core
+  - service_semantics_live_in_services_and_their_executable_tests
+
+relationships:
+  codemap_yml: path_map_and_current_module_index
+  routing_rules_yml: touched_path_to_owner_mapping
+  gate_matrix_yml: changed_path_risk_evidence_to_gate_mapping
+  architecture_yml: ontology_grammar_and_entropy_controls
+  docs: durable_human_guidance_only
+
+evidence_levels:
+  declared:
+    source: metadata_or_prose_only
+    can_prove_runtime_behavior: false
+  checked:
+    source: schema_static_validation_typecheck_drift_or_boundary_check
+    can_prove_runtime_behavior: false
+  tested:
+    source: unit_integration_contract_replay_resilience_or_e2e_tests
+    can_prove_runtime_behavior: true
+  proven:
+    source: executed_gate_or_test_evidence_appropriate_to_claimed_invariant
+    can_prove_runtime_behavior: true
+
+area_kinds:
+  ddd_service:
+    role: Pure business library and bounded context.
+    allowed_paths:
+      - services/*-service/**
+    required_files:
+      - Cargo.toml
+      - model.yaml
+      - src/lib.rs
+    allowed_layers:
+      - domain
+      - application
+      - ports
+      - adapters
+      - contracts
+      - events
+      - policies
+    must_not:
+      - own_http_server_or_main_rs
+      - depend_on_axum_or_server_entrypoints
+      - depend_on_infra_or_ops
+      - read_process_env_in_domain_or_application
+      - import_concrete_data_cache_storage_adapters_from_domain
+      - change_business_semantics_from_platform_metadata_only
+    evidence_required_for_behavior_claims:
+      - tests_or_gates_at_service_semantic_level
+
+  sync_runtime_entrypoint:
+    role: Synchronous protocol composition and request adaptation.
+    allowed_paths:
+      - servers/**
+    may_depend_on:
+      - services/**
+      - packages/**
+    must_not:
+      - own_domain_state_transitions
+      - be_imported_by_services
+      - define_external_contract_shapes_without_packages_contracts
+    evidence_required_for_behavior_claims:
+      - handler_or_integration_tests
+      - backend_primary_gate_when_default_path_changes
+
+  async_runtime_entrypoint:
+    role: Async execution, outbox relay, projection, scheduling, replay, and recovery.
+    allowed_paths:
+      - workers/**
+    may_depend_on:
+      - services/**
+      - packages/**
+    must_have_when_relevant:
+      - idempotency
+      - retry_policy
+      - checkpoint
+      - replay_or_recovery_path
+      - rebuildable_read_model_for_projectors
+    must_not:
+      - hide_distributed_semantics_in_implicit_control_flow
+      - be_imported_by_services
+    evidence_required_for_behavior_claims:
+      - replay_resilience_or_worker_specific_tests
+
+  shared_package:
+    role: Shared contracts, traits, adapters, runtime helpers, security, observability, and tooling libraries.
+    allowed_paths:
+      - packages/**
+    must_not:
+      - depend_on_servers_or_workers_as_entrypoints
+      - smuggle_service_domain_logic_into_shared_helpers
+      - create_unowned_common_utils_core_packages
+    evidence_required_for_behavior_claims:
+      - path_scoped_tests_or_typecheck
+
+  contract_control_plane:
+    role: External DTO, event, RPC, SDK, OpenAPI, and error shape source of truth.
+    allowed_paths:
+      - packages/contracts/**
+      - docs/contracts/**
+      - verification/contract/**
+    must_not:
+      - be_changed_after_consumers_for_external_shape_changes
+      - hand_edit_generated_contract_artifacts
+    evidence_required_for_behavior_claims:
+      - contract_validation
+      - generated_drift_check
+
+  platform_control_plane:
+    role: Platform-level metadata, schemas, validators, generators, resources, deployables, and topology.
+    allowed_paths:
+      - platform/schema/**
+      - platform/model/**
+      - platform/validators/**
+      - platform/generators/**
+      - platform/catalog/**
+    must_not:
+      - encode_service_local_business_semantics
+      - depend_on_runtime_business_code
+      - treat_metadata_as_runtime_proof
+      - make_optional_infra_default_without_explicit_policy
+    evidence_required_for_behavior_claims:
+      - validators
+      - generated_drift_check_when_generators_change
+      - topology_or_delivery_smoke_when_runtime_shape_changes
+
+  infra_declaration:
+    role: Infrastructure declarations, delivery manifests, local dependencies, and secret consumption shape.
+    allowed_paths:
+      - infra/**
+      - ops/**
+    must_not:
+      - make_env_files_the_canonical_backend_secret_path
+      - require_runtime_hosts_to_compile_first_party_rust
+      - edit_generated_rendered_output_by_hand
+    evidence_required_for_behavior_claims:
+      - platform_validation
+      - topology_validation
+      - sops_or_runtime_smoke_when_secrets_or_delivery_change
+
+  agent_control_plane:
+    role: Agent routing, ownership, reading order, gate selection, architecture grammar, and skill coordination.
+    allowed_paths:
+      - AGENTS.md
+      - agent/**
+      - .agents/**
+    must_not:
+      - contain_business_logic
+      - contain_runtime_secrets
+      - store_temporary_plans_outside_docs_local
+      - replace_executable_evidence_with_yaml_rules
+    evidence_required_for_behavior_claims:
+      - boundary_check_or_relevant_repo_tool_validation
+
+  verification_assets:
+    role: Executable evidence, fixtures, diagnostics, replay, resilience, contract, and topology checks.
+    allowed_paths:
+      - verification/**
+      - fixtures/**
+      - tools/**
+      - justfiles/**
+      - moon.yml
+    must_not:
+      - make_tests_depend_on_optional_shells_for_backend_core
+      - become_prose_only_admission_records
+    evidence_required_for_behavior_claims:
+      - execution_of_the_specific_lane_being_changed
+
+  documentation:
+    role: Durable human guidance only.
+    allowed_paths:
+      - docs/architecture/**
+      - docs/adr/**
+      - docs/operations/**
+      - docs/contracts/**
+      - docs/template-users/**
+      - docs/governance/**
+      - docs/archive/**
+    must_not:
+      - act_as_agent_memory_layer
+      - record_ordinary_implementation_progress
+      - contain_gate_transcripts_or_status_snapshots_as_default_guidance
+      - define_agent_behavior_rules_that_belong_in_agent
+      - be_created_without_explicit_path_and_purpose_approval
+    evidence_required_for_behavior_claims:
+      - executable_source_reference
+
+  local_only:
+    role: Scratch planning, handoff notes, temporary guidance, and local evidence snapshots.
+    allowed_paths:
+      - docs/_local/**
+    must_not:
+      - be_treated_as_authoritative_current_state
+      - be_promoted_to_tracked_docs_without_explicit_approval
+    evidence_required_for_behavior_claims:
+      - none_local_only
+
+  generated:
+    role: Generated artifacts derived from source files, schemas, or generators.
+    allowed_paths:
+      - infra/kubernetes/rendered/**
+      - docs/generated/**
+      - platform/catalog/**
+      - packages/contracts/generated/**
+    must_not:
+      - be_hand_edited
+      - be_used_as_proof_without_current_regeneration_or_drift_check
+    evidence_required_for_behavior_claims:
+      - generated_drift_check
+
+  optional_surface:
+    role: Non-default shells, advanced provider lanes, optional infra profiles, and adoption surfaces.
+    allowed_paths:
+      - apps/**
+      - packages/ui/**
+      - mobile/**
+      - desktop/**
+      - optional_profiles
+    must_not:
+      - be_required_by_root_backend_core_commands
+      - redefine_backend_reference_architecture
+    evidence_required_for_behavior_claims:
+      - explicit_profile_gate_or_advisory_check
+
+status_values:
+  active_core:
+    meaning: Default backend-core path or reference chain.
+    evidence_required:
+      - cargo_or_runtime_reference
+      - just_or_ci_gate
+      - tests_or_smoke
+  active_support:
+    meaning: Support code used by active core or explicit gates.
+    evidence_required:
+      - referenced_by_active_core_or_gate
+  optional_intentional:
+    meaning: Explicit non-default profile or provider lane.
+    evidence_required:
+      - explicit_profile
+      - not_default_backend_core
+  local_only:
+    meaning: Scratch, planning, or untracked local material.
+    evidence_required:
+      - local_path_or_gitignored_status
+  generated:
+    meaning: Derived output that must be regenerated from source.
+    evidence_required:
+      - generator_source
+      - drift_check
+  archived:
+    meaning: Historical material, not current default guidance.
+    evidence_required:
+      - archive_path_or_superseding_current_source
+  stale:
+    meaning: Historical or outdated material with no current gate.
+    evidence_required:
+      - historical_reference
+      - no_current_gate
+  orphan_candidate:
+    meaning: No strong reference found; needs review before deletion.
+    evidence_required:
+      - no_strong_reference
+      - owner_review
+  zombie_candidate:
+    meaning: No reference, no test, no deploy path, and misleading if kept.
+    evidence_required:
+      - no_reference
+      - no_test
+      - no_deploy
+      - owner_review
+
+default_reference_chain:
+  business:
+    - service
+    - contracts
+    - server
+    - outbox
+    - relay
+    - projector
+  engineering:
+    - declared_platform_metadata
+    - secrets_shape
+    - deploy_shape
+    - gitops_direction
+    - runbook_or_gate_evidence

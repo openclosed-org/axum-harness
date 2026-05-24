@@ -1,0 +1,130 @@
+version: 1
+status: active
+purpose: >
+  Entropy guardrails for agents. These are hard stops or escalation points for
+  changes that make the repository less classifiable, less verifiable, or less
+  faithful to the backend harness reference shape.
+
+hard_stops:
+  unclassified_structure:
+    rule: Do not add a directory, package, service, deployable, or control file without a repository ontology kind and routing owner.
+    examples:
+      - new_top_level_directory_without_route
+      - packages/common
+      - services/shared
+  generic_bucket_names:
+    rule: Do not introduce weak bucket names for new paths.
+    forbidden:
+      - common
+      - utils
+      - shared
+      - core
+      - misc
+      - tmp
+      - old
+      - new
+      - final
+      - helpers
+  docs_pollution:
+    rule: Do not create tracked docs for temporary plans, audits, status snapshots, gate transcripts, vocabulary catalogs, or agent behavior rules without explicit path and purpose approval.
+    prefer:
+      - docs/_local/**
+      - pull_request_notes
+      - handoff_text
+  metadata_as_proof:
+    rule: Do not claim behavior is proven from YAML, metadata, or prose alone.
+    required_for_proof:
+      - tests
+      - validators
+      - gates
+      - scripts
+      - command_output
+  generated_manual_edit:
+    rule: Do not hand-edit generated directories.
+    generated_paths:
+      - infra/kubernetes/rendered/**
+      - docs/generated/**
+      - platform/catalog/**
+      - packages/contracts/generated/**
+  optional_surface_default_leak:
+    rule: Optional frontend, desktop, mobile, UI shell, advanced provider, or non-default infra lanes must not become requirements for root backend-core commands.
+    protect:
+      - just dev
+      - just typecheck
+      - just verify-contracts
+      - just verify
+      - just check-backend-primary
+  domain_runtime_coupling:
+    rule: Service domain and application layers must not depend on runtime entrypoints or infrastructure concerns.
+    forbidden_dependencies:
+      - axum
+      - servers/**
+      - workers/**
+      - infra/**
+      - ops/**
+      - kubernetes
+      - podman
+      - systemd
+      - direct_process_env
+  adapter_without_port:
+    rule: Do not add a concrete adapter without a clear port boundary owned by the service or shared trait package.
+  runtime_entrypoint_without_gate:
+    rule: Do not add a server, worker, deployable, or high-risk runtime path without a corresponding check, smoke, or gate selection path.
+  justfiles_script_dump:
+    rule: Do not add unclassified just recipes or one-off historical commands to Justfile or justfiles.
+    required_for_new_recipes:
+      - gate_class
+      - cost_level
+      - scope
+      - evidence_output
+      - safe_for_agent_auto_run
+      - allowed_in_ci
+      - release_blocking
+  deploy_without_smoke_or_dry_run:
+    rule: Do not add deploy recipes without a matching validate, dry-run, or smoke recipe.
+  dev_recipe_as_proof:
+    rule: Developer convenience recipes must not be used as CI, release, topology, or behavior proof.
+  service_without_model:
+    rule: New service directories must include model.yaml as declared metadata and executable tests or gates for semantic claims.
+  hidden_distributed_semantics:
+    rule: Retry, idempotency, checkpoint, replay, ordering, projection rebuild, and outbox semantics must not exist only implicitly.
+  topology_changes_business_semantics:
+    rule: Platform or topology metadata may change deployment shape, not business state semantics.
+  speculative_compatibility:
+    rule: Do not add backward-compatibility layers unless persisted data, shipped behavior, external consumers, or explicit user requirements make them necessary.
+
+escalate_before_continuing:
+  - requested_change_conflicts_with_executable_sources
+  - requested_change_requires_new_tracked_docs_without_approval
+  - requested_change_changes_default_backend_core_contract
+  - requested_change_moves_optional_capability_into_default_path
+  - requested_change_blurs_service_server_worker_boundary
+  - requested_change_has_no_owner_in_routing_rules
+  - required_validation_gate_is_missing_or_broken
+  - new_recipe_has_no_gate_taxonomy_class
+  - deploy_recipe_has_no_matching_validate_dry_run_or_smoke
+
+allowed_escape_hatches:
+  explicit_user_approval:
+    requires:
+      - exact_path
+      - purpose
+      - owner
+      - evidence_plan
+      - review_or_deletion_trigger
+  temporary_local_work:
+    allowed_paths:
+      - docs/_local/**
+      - target/**
+    must_not:
+      - be_reported_as_tracked_repo_guidance
+      - become_default_reading_path
+
+completion_checks:
+  - changed_paths_have_known_owners
+  - new_paths_match_directory_grammar
+  - names_match_naming_conventions
+  - generated_paths_were_not_hand_edited
+  - docs_write_control_was_preserved
+  - selected_gates_match_changed_paths_risk_and_evidence_level
+  - new_or_changed_recipes_match_gate_taxonomy

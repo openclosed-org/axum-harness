@@ -108,12 +108,26 @@ Backend tasks read:
 5. relevant `docs/architecture/**` only when architecture doctrine is directly needed
 6. relevant `docs/adr/**` only when a durable decision is directly involved
 
+Structure, naming, ownership-boundary, gate/evidence, or control-plane tasks also read:
+
+1. `agent/architecture/repository-ontology.yml`
+2. `agent/architecture/directory-grammar.yml`
+3. `agent/architecture/naming-conventions.yml`
+4. `agent/architecture/gate-taxonomy.yml`
+5. `agent/architecture/evidence-taxonomy.yml`
+6. `agent/architecture/entropy-guardrails.yml`
+
+Rename, move, split, merge, delete, archive, boundary migration, adapter relocation, workspace reshaping, or recipe reclassification tasks also read:
+
+1. `agent/task-profiles/refactor.yml`
+
 Tooling, scripts, gates, or repo-control tasks also read:
 
 1. `Justfile`
-2. `justfiles/**`
-3. `moon.yml`
-4. `tools/repo-tools/**`
+2. `justfiles/README.md`
+3. `justfiles/**`
+4. `moon.yml`
+5. `tools/repo-tools/**`
 
 Infra, secrets, topology, or deploy tasks also read:
 

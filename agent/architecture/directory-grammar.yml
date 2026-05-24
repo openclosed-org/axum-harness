@@ -1,0 +1,270 @@
+version: 1
+status: active
+purpose: >
+  Directory grammar for repository areas. Use this before adding or moving
+  files so new paths encode ownership, layer, and runtime semantics.
+
+global_rules:
+  - classify_path_by_repository_ontology_before_creating_it
+  - do_not_create_new_top_level_directories_without_explicit_owner_and_route
+  - do_not_use_generic_bucket_names_for_new_directories
+  - generated_directories_are_read_only
+  - optional_surfaces_must_stay_out_of_default_backend_core
+
+forbidden_new_directory_names:
+  - common
+  - utils
+  - shared
+  - core
+  - misc
+  - tmp
+  - old
+  - new
+  - final
+  - stuff
+  - helpers
+
+top_level:
+  allowed:
+    - services
+    - servers
+    - workers
+    - packages
+    - platform
+    - infra
+    - ops
+    - verification
+    - fixtures
+    - tools
+    - justfiles
+    - agent
+    - .agents
+    - docs
+  rule: New top-level directories require explicit user approval and routing metadata.
+
+areas:
+  services:
+    pattern: services/<context>-service
+    required:
+      - Cargo.toml
+      - model.yaml
+      - src/lib.rs
+    allowed_src_children:
+      - domain
+      - application
+      - ports
+      - adapters
+      - contracts
+      - events
+      - policies
+    forbidden_src_children:
+      - server
+      - routes
+      - handlers
+      - controller
+      - http
+      - cli
+      - main.rs
+      - infrastructure
+      - common
+      - utils
+    notes:
+      - Services are pure libraries and own business semantics.
+      - Adapters may exist inside a service only when they adapt a service-owned port and do not become process entrypoints.
+
+  servers:
+    pattern: servers/<role>/<deployable-name> or servers/<deployable-name>
+    required:
+      - Cargo.toml
+      - src
+    allowed_src_children:
+      - routes
+      - handlers
+      - middleware
+      - state
+      - config
+      - bootstrap
+      - adapters
+      - errors
+    forbidden_src_children:
+      - domain
+      - aggregates
+      - policies_that_own_business_state
+      - repositories_that_bypass_service_ports
+    notes:
+      - Servers compose services and adapt synchronous protocols.
+      - External shape changes start in packages/contracts when they cross process or repository boundaries.
+
+  workers:
+    pattern: workers/<async-role>
+    required:
+      - Cargo.toml
+      - src
+    allowed_src_children:
+      - config
+      - state
+      - checkpoint
+      - dedupe
+      - replay
+      - polling
+      - publishing
+      - projection
+      - scheduling
+      - recovery
+      - adapters
+      - errors
+    forbidden_src_children:
+      - domain
+      - hidden_retry_logic
+      - unowned_processor_bucket
+    notes:
+      - Workers must make retry, idempotency, checkpoint, replay, and recovery semantics explicit when relevant.
+
+  packages:
+    pattern: packages/<capability> or packages/<capability>-<role>
+    allowed_roles:
+      - contracts
+      - traits
+      - adapters
+      - runtime
+      - platform
+      - security
+      - observability
+      - devx
+    forbidden:
+      - packages/common
+      - packages/utils
+      - packages/core
+      - package_that_depends_on_server_entrypoints_for_shared_security
+    notes:
+      - Shared packages must not become dumping grounds for service-specific domain logic.
+
+  platform:
+    pattern: platform/<control-plane-kind>
+    allowed_children:
+      - schema
+      - model
+      - validators
+      - generators
+      - catalog
+    generated_children:
+      - catalog
+    forbidden_children:
+      - services
+      - runtime_business_logic
+      - local_plans
+    notes:
+      - Platform model declares platform shape and global defaults, not service-local semantics.
+
+  infra_ops:
+    patterns:
+      - infra/<provider-or-delivery-kind>
+      - ops/<operator-workflow-kind>
+    forbidden:
+      - generated_rendered_manual_edit
+      - application_domain_logic
+      - canonical_dotenv_secret_shape
+    notes:
+      - Backend deployable secrets use SOPS plus age as canonical shape.
+
+  verification:
+    patterns:
+      - verification/<evidence-kind>
+      - fixtures/<fixture-kind>
+      - tools/<tool-kind>
+    allowed_kinds:
+      - contract
+      - replay
+      - resilience
+      - topology
+      - diagnostics
+      - fixtures
+    forbidden:
+      - prose_only_gate_result_archive
+      - optional_shell_dependency_for_backend_core_gate
+    notes:
+      - Verification assets produce evidence; they are not durable docs by themselves.
+
+  agent:
+    pattern: agent/<control-plane-kind>
+    allowed_children:
+      - manifests
+      - architecture
+      - task-profiles
+    allowed_files:
+      - README.md
+      - codemap.yml
+      - brief-format.md
+      - skill-authoring.md
+    forbidden_children:
+      - plans
+      - status
+      - audits
+      - runtime
+      - secrets
+    notes:
+      - Agent control plane rules belong here, not in tracked docs.
+      - architecture contains permanent rules; task-profiles contains task-scoped workflow protocols.
+
+  justfiles:
+    pattern: justfiles/<command-surface-kind>
+    allowed_current_children:
+      - core
+      - quality
+      - domains
+      - ops
+      - agent
+    target_classification_if_migrated:
+      - core.just
+      - quality.just
+      - architecture.just
+      - behavior.just
+      - evidence.just
+      - security.just
+      - topology.just
+      - agent.just
+      - hygiene.just
+      - release.just
+      - dev.just
+      - ops.just
+    required_files_when_present:
+      - README.md
+    forbidden:
+      - one_off_script_dump
+      - unclassified_gate_recipe
+      - dev_recipe_used_as_release_proof
+      - deploy_recipe_without_validate_dry_run_or_smoke
+    notes:
+      - justfiles are the project action control surface behind Justfile.
+      - Existing layout may remain until a separate migration plan exists.
+      - New recipes must follow gate taxonomy and naming grammar.
+
+  docs:
+    allowed_tracked_children:
+      - architecture
+      - adr
+      - operations
+      - contracts
+      - template-users
+      - governance
+      - archive
+    local_only_children:
+      - _local
+    forbidden_tracked_children_without_explicit_approval:
+      - audits
+      - plans
+      - status
+      - vocabulary
+      - checklists
+      - transcripts
+    notes:
+      - docs/_local is scratch space and not authoritative current-state guidance.
+      - Agent behavior rules belong in AGENTS.md or agent/**.
+
+  generated:
+    paths:
+      - infra/kubernetes/rendered/**
+      - docs/generated/**
+      - platform/catalog/**
+      - packages/contracts/generated/**
+    rule: Never hand-edit; change source and regenerate.

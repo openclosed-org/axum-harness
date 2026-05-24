@@ -1,0 +1,213 @@
+version: 1
+status: active
+purpose: >
+  Defines stable gate classes, cost levels, and just recipe naming grammar.
+  Prevents Justfile and justfiles from becoming an unclassified script dump.
+
+principles:
+  - gate_classes_come_from_system_risks_not_current_script_layout
+  - just_is_the_developer_and_agent_command_surface
+  - moon_orchestrates_tasks_and_cache_inputs
+  - repo_tools_owns_reusable_validation_logic
+  - dev_convenience_targets_are_not_ci_or_release_proof
+  - deploy_targets_need_matching_validate_dry_run_or_smoke_targets
+  - optional_topology_targets_must_not_enter_default_backend_core_gates
+
+gate_classes:
+  identity:
+    purpose: Repository ontology, directory identity, naming grammar, and agent context identity.
+    target_prefixes:
+      - validate-repo-ontology
+      - validate-directory-grammar
+      - validate-naming
+      - validate-agent-architecture
+      - agent
+    default_cost_level: L0_instant
+  source:
+    purpose: Format, lint, compile, static quality, and source hygiene.
+    target_prefixes:
+      - fmt
+      - lint
+      - check
+      - typecheck
+    default_cost_level: L1_quick
+  architecture:
+    purpose: Clean, Hexagonal, DDD, dependency, import, and layer boundaries.
+    target_prefixes:
+      - validate-boundaries
+      - validate-imports
+      - validate-ddd-layers
+      - boundary-check
+    default_cost_level: L1_quick
+  behavior:
+    purpose: Executable behavior tests, contract tests, integration tests, and runtime smoke.
+    target_prefixes:
+      - test
+      - smoke
+      - verify-contracts
+      - verify-replay
+    default_cost_level: L2_core
+  evidence:
+    purpose: Coverage, mutation testing, JUnit, summaries, reports, and machine-readable evidence.
+    target_prefixes:
+      - coverage
+      - mutants
+      - evidence
+      - audit-coverage
+    default_cost_level: L3_expensive
+  security:
+    purpose: Secrets, env shape, SOPS, dependency policy, and supply-chain checks.
+    target_prefixes:
+      - validate-secrets
+      - validate-env
+      - sops
+      - audit-deps
+      - deny
+    default_cost_level: L2_core
+  topology:
+    purpose: Local, VPS, Podman, systemd, Quadlet, K3d, K3s, and Multipass topology validation.
+    target_prefixes:
+      - render
+      - validate-topology
+      - smoke-topology
+      - smoke-local
+      - gate-local
+      - deploy
+    default_cost_level: L3_expensive
+  agent:
+    purpose: Agent context, codemap, routing, gate matrix, architecture YAML, and skill consistency.
+    target_prefixes:
+      - agent
+      - validate-agent
+      - audit-agent
+    default_cost_level: L0_instant
+  hygiene:
+    purpose: Inventory, orphan or zombie candidates, stale docs, ignored file audit, and duplicate surface detection.
+    target_prefixes:
+      - audit
+      - audit-inventory
+      - audit-orphans
+      - audit-docs
+      - audit-backend-core
+      - storage-report
+    default_cost_level: L2_core
+  release:
+    purpose: Composed release, lifecycle, and P0 readiness gates.
+    target_prefixes:
+      - gate
+      - semver-check
+      - release
+    default_cost_level: L4_release
+
+cost_levels:
+  L0_instant:
+    expected_duration: under_5_seconds
+    examples:
+      - yaml_parse
+      - file_presence
+      - naming_scan
+      - just_list
+  L1_quick:
+    expected_duration: under_2_minutes
+    examples:
+      - fmt
+      - cargo_check_selected
+      - clippy_selected
+      - nextest_selected
+  L2_core:
+    expected_duration: minutes
+    examples:
+      - backend_core_check
+      - contract_tests
+      - selected_worker_or_server_tests
+  L3_expensive:
+    expected_duration: longer_local_or_profile_specific
+    examples:
+      - llvm_cov_full
+      - selected_mutants
+      - topology_smoke
+      - k3d_or_render_checks
+  L4_release:
+    expected_duration: release_readiness
+    examples:
+      - release_gate
+      - security_topology_evidence_bundle
+      - semver_and_drift_checks
+
+just_target_prefixes:
+  canonical:
+    fmt: formatting
+    lint: static_lint
+    check: compile_or_low_cost_static_check
+    validate: schema_model_ontology_or_architecture_validation
+    test: executable_behavior_tests
+    coverage: coverage_evidence
+    mutants: mutation_testing_evidence
+    smoke: runtime_smoke
+    audit: hygiene_or_inventory_report
+    render: generated_or_deploy_rendering
+    deploy: deployment_action
+    gate: composed_lifecycle_gate
+    agent: agent_context_or_protocol_check
+  existing_accepted_aliases:
+    verify: composed_evidence_or_legacy_gate_entry
+    typecheck: compile_type_check_entry
+    boundary-check: architecture_boundary_check_entry
+  forbidden_for_new_targets:
+    - run-all
+    - do-check
+    - my-test
+    - test2
+    - full
+    - misc
+    - temp
+    - verify-stuff
+
+target_metadata_required_when_validator_exists:
+  - class
+  - cost_level
+  - scope
+  - evidence_output
+  - safe_for_agent_auto_run
+  - allowed_in_ci
+  - release_blocking
+
+evidence_output_rules:
+  check: may_stdout_only
+  validate: must_output_violations_when_failing
+  audit: must_write_stable_report_path
+  coverage: must_write_summary_or_html_or_lcov
+  mutants: must_write_mutation_report
+  gate: must_output_gate_summary
+  deploy: must_have_matching_validate_dry_run_or_smoke
+
+justfiles_classification:
+  current_layout:
+    core: developer_lifecycle_and_foundational_commands
+    quality: verification_gates_and_supply_chain
+    domains: backend_contract_platform_domain_surfaces
+    ops: secrets_deploy_runtime_resources_and_topology_profiles
+    agent: template_and_agent_related_operations
+  target_layout_if_migrated:
+    core.just: tool_detection_environment_help_bootstrap
+    quality.just: fmt_lint_check_typos_taplo_clippy
+    architecture.just: ontology_grammar_naming_dependency_boundary
+    behavior.just: tests_contract_integration_smoke
+    evidence.just: llvm_cov_mutants_junit_reports
+    security.just: secret_env_supply_chain_sops_policy
+    topology.just: local_vps_podman_systemd_quadlet_k3s_multipass
+    agent.just: codemap_routing_gate_matrix_agent_context
+    hygiene.just: inventory_orphans_zombies_ignored_docs_status
+    release.just: composed_release_and_lifecycle_gates
+    dev.just: developer_convenience_only_not_ci_or_release_proof
+    ops.just: operator_commands_and_runbook_helpers
+  migration_rule: Do not rename existing recipes or restructure justfiles without a separate migration plan.
+
+rules:
+  - every_new_gate_target_must_have_class_cost_scope_and_evidence_output
+  - every_deploy_target_must_have_matching_validate_dry_run_or_smoke_target
+  - every_optional_topology_target_must_be_excluded_from_default_backend_core_gate
+  - every_audit_target_must_write_or_name_a_stable_report_path
+  - dev_convenience_targets_must_not_be_used_as_ci_or_release_proof
+  - gate_matrix_selects_gates_by_changed_paths_risk_and_evidence_level
+  - justfiles_are_control_surface_not_script_dump

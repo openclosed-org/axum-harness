@@ -120,6 +120,12 @@ gates:
     strength: guardrail
     scope: platform
 
+  sops_validate:
+    command: ["just", "sops-validate"]
+    label: SOPS secret shape validation
+    strength: guardrail
+    scope: security
+
   validate_state:
     command: ["just", "validate-state", "strict"]
     label: State metadata validation
@@ -164,6 +170,24 @@ gates:
     strength: advisory
     scope: worker
 
+  validate_agent_architecture:
+    command: ["just", "validate-agent-architecture", "strict"]
+    label: Agent architecture control-plane validation
+    strength: guardrail
+    scope: agent
+
+  validate_justfiles_taxonomy:
+    command: ["just", "validate-justfiles-taxonomy", "warn"]
+    label: Justfiles taxonomy validation
+    strength: advisory
+    scope: tooling
+
+  audit_inventory:
+    command: ["just", "audit-inventory"]
+    label: Repository inventory audit
+    strength: advisory
+    scope: hygiene
+
   gate_release:
     command: ["just", "gate-release"]
     label: Release gate
@@ -181,6 +205,7 @@ path_rules:
       - docs/governance/**
       - docs/archive/**
     recommended:
+      - validate_agent_architecture
       - boundary_check
     required: []
     note: Coordination-only changes should not trigger heavy platform or release gates by default.
@@ -190,6 +215,7 @@ path_rules:
       - justfiles/**
       - moon.yml
     recommended:
+      - validate_justfiles_taxonomy
       - boundary_check
       - typecheck
     required:

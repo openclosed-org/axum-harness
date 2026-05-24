@@ -1,0 +1,175 @@
+version: 1
+status: active
+purpose: >
+  Task profile for refactor operations. Load only for rename, move, split,
+  merge, delete, archive, boundary migration, adapter relocation, or workspace
+  reshaping tasks.
+
+activation_triggers:
+  - rename
+  - move
+  - split
+  - merge
+  - delete
+  - archive
+  - boundary_migration
+  - adapter_relocation
+  - workspace_reshaping
+  - directory_reclassification
+  - recipe_reclassification
+
+before_change:
+  identify_scope:
+    - list_touched_paths
+    - classify_area_kind_from_repository_ontology
+    - identify_owner_from_routing_rules
+    - identify_status_value
+    - identify_bounded_context_when_services_are_touched
+    - identify_layer_when_services_servers_or_workers_are_touched
+  identify_invariant:
+    - state_observable_behavior_or_control_rule_being_changed
+    - state_why_existing_boundary_is_insufficient
+    - distinguish_current_state_from_target_state
+  check_boundaries:
+    - check_allowed_dependencies_from_codemap
+    - check_directory_grammar
+    - check_naming_conventions
+    - check_gate_taxonomy_when_recipes_or_gates_change
+    - check_evidence_taxonomy_when_reports_or_proof_claims_change
+    - check_generated_readonly_paths
+    - check_optional_surface_vs_default_backend_core
+    - check_docs_write_control
+  choose_evidence:
+    - choose_gate_from_gate_matrix_by_changed_paths_risk_and_evidence_level
+    - prefer_path_scoped_guardrails_before_repo_wide_gates
+    - do_not_select_gates_by_subagent_identity_only
+
+change_policy:
+  default: minimal_causal_diff
+  allowed:
+    - edit_existing_control_plane_file_when_rule_belongs_there
+    - add_agent_architecture_rule_when_machine_readable_boundary_is_missing
+    - add_or_update_task_profile_when_operation_protocol_is_missing
+    - update_docs_only_when_durable_human_guidance_is_explicitly_required
+    - add_tests_or_validators_at_same_semantic_level_as_behavior_change
+  forbidden:
+    - big_bang_rewrite
+    - unclassified_directory
+    - new_common_utils_core
+    - docs_as_runtime_proof
+    - yaml_as_runtime_proof
+    - optional_component_in_default_path
+    - domain_depends_on_infra
+    - server_owns_domain_logic
+    - worker_hides_recovery_semantics
+    - deploy_shape_without_smoke_or_validation_path
+    - generated_manual_edit
+    - speculative_compatibility_layer
+    - tracked_docs_for_temporary_plan_or_gate_transcript
+    - just_recipe_rename_without_migration_plan
+    - deleting_existing_recipe_without_owner_review
+
+risk_classification:
+  coordination_only:
+    examples:
+      - AGENTS.md_reading_path_update
+      - agent_architecture_rule_update
+      - task_profile_update_without_command_behavior_change
+    minimum_evidence: checked
+    typical_gates:
+      - boundary_check
+      - validate-agent-architecture_when_available
+  tooling_or_gate_control_surface:
+    examples:
+      - Justfile_import_order_change
+      - justfiles_recipe_classification_change
+      - gate_matrix_change
+      - repo_tools_validation_change
+    minimum_evidence: checked
+    typical_gates:
+      - boundary_check
+      - typecheck
+      - relevant_just_target_dry_run_or_list
+  backend_core_behavior:
+    examples:
+      - service_domain_or_application_logic_change
+      - default_server_behavior_change
+      - contract_consumption_in_default_path
+    minimum_evidence: tested
+    typical_gates:
+      - check-backend-primary
+      - test-backend-primary
+      - boundary-check
+  contract_compatibility:
+    examples:
+      - external_dto_event_rpc_openapi_sdk_or_error_shape_change
+    minimum_evidence: checked
+    typical_gates:
+      - verify-contracts strict
+      - typegen
+      - drift-check
+  distributed_semantics:
+    examples:
+      - idempotency_retry_checkpoint_replay_ordering_projection_outbox_workflow
+    minimum_evidence: proven
+    typical_gates:
+      - verify-replay strict
+      - test-backend-primary
+  topology_or_delivery:
+    examples:
+      - deployable_identity_secrets_sops_gitops_runtime_resource_binding
+    minimum_evidence: checked
+    typical_gates:
+      - validate-platform
+      - validate-topology
+      - relevant_smoke_or_dry_run
+  docs_only:
+    examples:
+      - durable_human_guidance_update
+      - accepted_adr_update
+      - operations_runbook_update
+    minimum_evidence: declared
+    typical_gates:
+      - boundary-check
+
+docs_write_decision:
+  default: do_not_create_tracked_docs
+  allowed_tracked_docs_only_when:
+    - user_explicitly_approved_exact_path_and_purpose
+    - content_is_durable_human_guidance
+    - existing_code_tests_gates_readme_agents_or_agent_files_are_insufficient
+    - document_points_to_executable_source_or_accepted_decision
+  prefer:
+    - agent_for_agent_behavior_rules
+    - docs_local_for_temporary_plans_and_gate_transcripts
+    - pull_request_or_handoff_for_completion_notes
+
+after_change:
+  verify:
+    - run_selected_path_scoped_gate_when_available
+    - run_boundary_check_for_coordination_control_plane_changes
+    - do_not_report_unrun_gates_as_passed
+  inspect:
+    - review_diff_for_unrelated_user_changes
+    - ensure_no_generated_manual_edits
+    - ensure_docs_write_control_was_preserved
+    - ensure_agent_architecture_rules_do_not_duplicate_long_form_docs
+    - ensure_recipe_renames_have_migration_plan_when_present
+  report:
+    - what_changed
+    - why_it_restores_or_improves_the_invariant
+    - verification_ran
+    - verification_not_run
+    - residual_risk_or_uncertainty
+
+stop_and_ask_conditions:
+  - requested_change_requires_new_tracked_docs_without_exact_path_and_purpose_approval
+  - requested_change_conflicts_with_executable_sources_or_accepted_adr
+  - area_kind_has_no_home_in_repository_ontology
+  - gate_class_has_no_home_in_gate_taxonomy
+  - evidence_claim_has_no_home_in_evidence_taxonomy
+  - change_would_move_optional_surface_into_default_backend_core
+  - change_requires_destructive_git_operation
+  - user_changes_conflict_with_required_edit_in_same_lines
+  - semantic_boundary_owner_is_unclear_after_reading_routing_rules
+  - recipe_delete_or_rename_requested_without_migration_plan

@@ -1,0 +1,154 @@
+version: 1
+status: active
+purpose: >
+  Defines stable evidence kinds and claim levels for gates, reports, audits,
+  and completion summaries. Keeps agent claims tied to executable output.
+
+claim_levels:
+  declared:
+    meaning: Metadata, YAML, or prose declares intent or expected shape.
+    allowed_sources:
+      - AGENTS.md
+      - agent/**
+      - platform/model/**
+      - services/*/model.yaml
+      - docs/**
+    can_claim_behavior_correctness: false
+  checked:
+    meaning: Static or structural validation executed against current sources.
+    allowed_sources:
+      - schema_validation
+      - static_validation
+      - typecheck
+      - drift_check
+      - boundary_check
+      - yaml_parse
+      - just_list
+    can_claim_behavior_correctness: false
+  tested:
+    meaning: Executable tests exercised behavior in the relevant semantic scope.
+    allowed_sources:
+      - unit_tests
+      - integration_tests
+      - contract_tests
+      - replay_tests
+      - resilience_tests
+      - smoke_tests
+    can_claim_behavior_correctness: true
+  proven:
+    meaning: Executed gate or evidence bundle matched the claimed invariant and risk level.
+    allowed_sources:
+      - release_gate
+      - invariant_gate
+      - topology_smoke_with_required_context
+      - replay_or_delivery_gate_for_distributed_semantics
+      - security_or_secret_gate_for_secret_claims
+    can_claim_behavior_correctness: true
+
+evidence_kinds:
+  command_output:
+    role: Immediate execution transcript for a command in this change context.
+    stable_by_default: false
+    may_live_in:
+      - terminal_output
+      - ci_logs
+      - handoff
+  violation_report:
+    role: Machine-readable or stable text report of rule violations.
+    stable_by_default: true
+    expected_locations:
+      - target/audit/**
+      - target/reports/**
+  gate_summary:
+    role: Summary of composed gate inputs, outputs, and verdict.
+    stable_by_default: true
+    expected_locations:
+      - target/audit/gate-report.json
+      - target/audit/gate-summary.md
+  coverage_summary:
+    role: Coverage evidence from cargo-llvm-cov or equivalent.
+    stable_by_default: true
+    expected_locations:
+      - target/llvm-cov/**
+      - target/audit/coverage-summary.txt
+      - target/audit/counter-coverage-summary.txt
+  mutation_report:
+    role: Mutation testing evidence for selected high-risk domain or application code.
+    stable_by_default: true
+    expected_locations:
+      - target/mutants/**
+      - target/audit/mutants-*.md
+  junit_report:
+    role: CI-test report for nextest or equivalent runners.
+    stable_by_default: true
+    expected_locations:
+      - target/nextest/**
+      - target/audit/junit/**
+  inventory_report:
+    role: Repository inventory, ignored file audit, orphan, zombie, or stale candidate evidence.
+    stable_by_default: true
+    expected_locations:
+      - target/audit/repo-inventory.json
+      - target/audit/orphan-candidates.md
+      - target/audit/zombie-candidates.md
+  topology_report:
+    role: Render, dry-run, smoke, or topology matrix output.
+    stable_by_default: true
+    expected_locations:
+      - target/audit/topology-matrix.md
+      - target/audit/topology-*.json
+  drift_report:
+    role: Generated artifact or contract drift evidence.
+    stable_by_default: true
+    expected_locations:
+      - target/audit/drift-*.json
+      - target/audit/drift-*.md
+
+gate_output_contracts:
+  check:
+    minimum_output: stdout_or_exit_status
+    claim_level: checked
+  validate:
+    minimum_output: violations_on_failure
+    claim_level: checked
+  test:
+    minimum_output: test_result_summary
+    claim_level: tested
+  coverage:
+    minimum_output: coverage_summary_or_html_or_lcov
+    claim_level: tested
+  mutants:
+    minimum_output: mutation_report
+    claim_level: tested
+  smoke:
+    minimum_output: runtime_smoke_summary
+    claim_level: tested
+  audit:
+    minimum_output: stable_report_path
+    claim_level: checked
+  gate:
+    minimum_output: gate_summary
+    claim_level: proven_when_scope_matches_claim
+
+rules:
+  - do_not_report_unrun_commands_as_passed
+  - do_not_claim_proven_from_yaml_or_docs_only
+  - do_not_promote_target_state_docs_to_current_evidence
+  - evidence_must_match_the_claimed_scope_and_risk
+  - stale_gate_output_must_not_be_reused_as_current_proof
+  - docs_local_can_store_temporary_reasoning_but_is_not_authoritative
+  - coverage_and_mutants_are_evidence_gates_not_ordinary_test_gates
+  - release_claims_require_release_or_equivalent_composed_gate_evidence
+
+completion_report_fields:
+  required:
+    - what_changed
+    - why_it_restores_or_improves_invariant
+    - verification_ran
+    - verification_not_run
+    - residual_risk_or_uncertainty
+  evidence_labels:
+    - declared
+    - checked
+    - tested
+    - proven

@@ -1,0 +1,308 @@
+version: 1
+status: active
+purpose: >
+  Machine-readable naming grammar for humans and agents. Use it to prevent
+  weak names, misplaced vocabulary, and accidental mixing of domain, runtime,
+  platform, and agent-control-plane concepts.
+
+global_rules:
+  - names_must_encode_boundary_and_role_not_implementation_accident
+  - ddd_domain_names_must_not_use_ecs_or_platform_vocabulary
+  - platform_runtime_names_may_use_capability_resource_topology_language
+  - ambiguous_bucket_names_are_forbidden_for_new_paths
+  - generated_names_follow_their_generator_source_not_manual_preference
+
+forbidden_generic_names:
+  directories:
+    - common
+    - utils
+    - shared
+    - core
+    - misc
+    - tmp
+    - old
+    - new
+    - final
+  rust_files:
+    - entity.rs
+    - model.rs
+    - types.rs
+    - data.rs
+    - service.rs
+    - logic.rs
+    - processor.rs
+    - manager.rs
+    - repository.rs
+    - publisher.rs
+    - store.rs
+    - db.rs
+  just_targets:
+    - do
+    - run-all
+    - misc
+    - temp
+    - verify-stuff
+    - test2
+    - my-test
+
+vocabulary_boundaries:
+  ddd_domain:
+    allowed_terms:
+      - aggregate
+      - entity
+      - value_object
+      - command
+      - query
+      - event
+      - policy
+      - invariant
+      - repository_port
+    must_not_use_as_ecs_terms:
+      - entity_component_system
+      - component
+      - system
+      - topology_node
+      - deployable_resource
+    note: Counter may be a domain concept; Entity must not imply ECS inside service domain code.
+  platform_runtime:
+    allowed_terms:
+      - capability
+      - resource
+      - deployable
+      - topology
+      - profile
+      - provider
+      - binding
+    doctrine_reference: docs/architecture/capability-naming.md
+    note: Capability naming belongs to platform/runtime metadata, not DDD service internals.
+  agent_control_plane:
+    allowed_terms:
+      - codemap
+      - manifest
+      - routing_rule
+      - gate_matrix
+      - ontology
+      - grammar
+      - guardrail
+      - protocol
+    must_not_use:
+      - service
+      - runtime
+      - deployment
+      - model
+    note: Agent files describe coordination rules, not business or platform current state by themselves.
+
+directories:
+  services:
+    pattern: services/<context>-service
+    examples:
+      - services/counter-service
+      - services/tenant-service
+    forbidden:
+      - services/common
+      - services/core
+      - services/shared
+  servers:
+    pattern: servers/<role>/<deployable-name> or servers/<deployable-name>
+    examples:
+      - servers/bff/web-bff
+      - servers/gateway
+    forbidden:
+      - servers/services
+      - servers/domain
+  workers:
+    pattern: workers/<async-role>
+    examples:
+      - workers/outbox-relay
+      - workers/projector
+      - workers/scheduler
+    forbidden:
+      - workers/common
+      - workers/processor
+  packages:
+    pattern: packages/<capability> or packages/<capability>-<role>
+    examples:
+      - packages/data-traits
+      - packages/data-adapters
+      - packages/contracts
+      - packages/observability
+    forbidden:
+      - packages/common
+      - packages/utils
+      - packages/core
+  platform:
+    pattern: platform/<control-plane-kind>
+    examples:
+      - platform/schema
+      - platform/model
+      - platform/validators
+      - platform/generators
+      - platform/catalog
+  agent:
+    pattern: agent/<control-plane-kind>
+    examples:
+      - agent/manifests
+      - agent/architecture
+    forbidden:
+      - agent/plans
+      - agent/status
+      - agent/runtime
+  docs:
+    pattern: docs/<approved-category>
+    examples:
+      - docs/architecture
+      - docs/adr
+      - docs/operations
+      - docs/governance
+      - docs/archive
+      - docs/_local
+    forbidden_without_explicit_approval:
+      - docs/audits
+      - docs/plans
+      - docs/status
+      - docs/vocabulary
+
+rust_crates:
+  service: <context>-service
+  server: <deployable-name>
+  worker: <async-role>
+  traits_package: <capability>-traits
+  adapter_package: <capability>-adapters
+  contract_package: contracts
+  forbidden:
+    - common
+    - utils
+    - core
+    - shared
+
+rust_files:
+  ddd_domain:
+    pattern: <context>_<concept>.rs
+    examples:
+      - counter.rs
+      - counter_error.rs
+      - counter_invariant.rs
+      - counter_changed_event.rs
+    forbidden:
+      - entity.rs
+      - model.rs
+      - types.rs
+      - data.rs
+  application:
+    pattern: <context>_<usecase_or_application_role>.rs
+    examples:
+      - counter_application_service.rs
+      - increment_counter_usecase.rs
+      - reset_counter_usecase.rs
+      - get_counter_query.rs
+    forbidden:
+      - service.rs
+      - logic.rs
+      - processor.rs
+      - manager.rs
+  ports:
+    pattern: <context>_<capability>_port.rs
+    examples:
+      - counter_repository_port.rs
+      - counter_event_publisher_port.rs
+      - counter_idempotency_store_port.rs
+    forbidden:
+      - repository.rs
+      - publisher.rs
+      - store.rs
+  adapters:
+    pattern: <context>_<technology>_<port_role>_adapter.rs
+    examples:
+      - counter_libsql_repository_adapter.rs
+      - counter_surrealdb_repository_adapter.rs
+      - counter_outbox_event_publisher_adapter.rs
+    forbidden:
+      - libsql_adapter.rs
+      - surrealdb_adapter.rs
+      - db.rs
+  server:
+    pattern: <protocol_or_route>_<adapter_role>.rs
+    examples:
+      - counter_routes.rs
+      - counter_handlers.rs
+      - error_response.rs
+  worker:
+    pattern: <worker_role>_<semantic_role>.rs
+    examples:
+      - outbox_relay_checkpoint.rs
+      - projector_replay.rs
+      - scheduler_job_runner.rs
+
+rust_types:
+  aggregate: <Context>
+  value_object: <Context><Concept>
+  domain_event: <Context><PastTenseEvent>
+  command: <Verb><Context>Command
+  query: Get<Context>Query
+  usecase: <Verb><Context>UseCase
+  application_service: <Context>ApplicationService
+  repository_port: <Context>Repository
+  repository_adapter: <Technology><Context>Repository
+  server_state: <Deployable>State
+  worker_state: <WorkerRole>State
+  forbidden_suffixes_for_domain_logic:
+    - Manager
+    - Processor
+    - Helper
+    - Util
+
+yaml_keys:
+  style: snake_case
+  must_encode:
+    - owner
+    - status
+    - evidence_level_when_claiming_state
+  forbidden:
+    - proof
+    - guaranteed
+    - production_ready
+    - magic
+
+just_targets:
+  prefixes:
+    fmt: formatting
+    lint: static lint
+    check: low-cost static or compile check
+    validate: schema model or rule validation
+    test: executable tests
+    coverage: coverage evidence
+    mutants: mutation testing evidence
+    smoke: runtime smoke
+    audit: hygiene inventory or report
+    render: generated or deploy rendering
+    deploy: deployment action
+    verify: composed evidence
+    gate: lifecycle gate
+    agent: agent context or protocol check
+  existing_accepted_aliases:
+    verify: composed evidence or legacy gate entry
+    typecheck: compile type check entry
+    boundary-check: architecture boundary check entry
+  suffix_guidance:
+    strict: failures should block the requested lane
+    warn: advisory signal only
+  forbidden:
+    - do
+    - run-all
+    - misc
+    - temp
+    - verify-stuff
+    - test2
+    - my-test
+
+deployment_names:
+  deployable: <runtime-role>-<surface>
+  profile: <scope>-<provider-or-topology>
+  resource: <capability>-<provider>
+  examples:
+    - web-bff
+    - local-k3d
+    - surrealdb-compose
+  must_not:
+    - imply_default_backend_core_when_optional
+    - encode_business_invariant_in_topology_name
