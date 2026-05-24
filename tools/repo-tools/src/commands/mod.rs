@@ -1,10 +1,16 @@
+pub(crate) mod agent_architecture;
+pub(crate) mod command_surface;
 pub(crate) mod contracts;
 pub(crate) mod devx;
 pub(crate) mod doctor;
-pub(crate) mod harness;
+pub(crate) mod gate;
+pub(crate) mod handoff;
 pub(crate) mod infra;
+pub(crate) mod inventory;
 pub(crate) mod ops;
 pub(crate) mod platform;
+pub(crate) mod repo_validators;
+pub(crate) mod routing;
 pub(crate) mod secrets;
 pub(crate) mod template;
 pub(crate) mod workers;

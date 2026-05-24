@@ -1,8 +1,10 @@
+pub(crate) mod action;
 pub(crate) mod command;
 pub(crate) mod context;
 pub(crate) mod env;
 pub(crate) mod external_tools;
 pub(crate) mod fs;
+pub(crate) mod gate_catalog;
 pub(crate) mod git;
 pub(crate) mod manifest;
 pub(crate) mod mode;

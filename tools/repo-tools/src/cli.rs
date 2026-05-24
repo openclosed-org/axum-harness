@@ -22,7 +22,6 @@ enum Commands {
     ValidateState(ModeArgs),
     ValidateWorkflows(ModeArgs),
     VerifyReplay(ModeArgs),
-    BoundaryCheck,
     Typegen,
     DriftCheck,
     SdkDriftCheck,
@@ -33,6 +32,10 @@ enum Commands {
     ValidatePublishIntent(ModeArgs),
     ValidateContractBoundaries(ModeArgs),
     ValidateContracts(ModeArgs),
+    Agent(AgentArgs),
+    Check(CheckArgs),
+    Validate(ValidateArgs),
+    Audit(AuditArgs),
     GenDirectoryCategories,
     VerifyCounterDelivery(ModeArgs),
     VerifyGeneratedArtifacts,
@@ -133,6 +136,63 @@ impl GateArgs {
 #[derive(Args)]
 pub(crate) struct VerifyHandoffArgs {
     pub(crate) agent: String,
+}
+
+#[derive(Args)]
+pub(crate) struct AgentArgs {
+    #[command(subcommand)]
+    pub(crate) command: AgentCommand,
+}
+
+#[derive(Subcommand)]
+pub(crate) enum AgentCommand {
+    Validate(AgentValidateArgs),
+}
+
+#[derive(Args)]
+pub(crate) struct AgentValidateArgs {
+    #[command(subcommand)]
+    pub(crate) command: AgentValidateCommand,
+}
+
+#[derive(Subcommand)]
+pub(crate) enum AgentValidateCommand {
+    Architecture(ModeArgs),
+}
+
+#[derive(Args)]
+pub(crate) struct CheckArgs {
+    #[command(subcommand)]
+    pub(crate) command: CheckCommand,
+}
+
+#[derive(Subcommand)]
+pub(crate) enum CheckCommand {
+    Boundaries,
+}
+
+#[derive(Args)]
+pub(crate) struct ValidateArgs {
+    #[command(subcommand)]
+    pub(crate) command: ValidateCommand,
+}
+
+#[derive(Subcommand)]
+pub(crate) enum ValidateCommand {
+    JustfilesTaxonomy(ModeArgs),
+    NewCommandTaxonomy(ModeArgs),
+}
+
+#[derive(Args)]
+pub(crate) struct AuditArgs {
+    #[command(subcommand)]
+    pub(crate) command: AuditCommand,
+}
+
+#[derive(Subcommand)]
+pub(crate) enum AuditCommand {
+    Inventory,
+    CommandSurface,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, ValueEnum)]
@@ -738,25 +798,26 @@ pub(crate) fn run() -> Result<()> {
     let cli = Cli::parse();
     match cli.command {
         Commands::Doctor => commands::doctor::doctor(),
-        Commands::GateGuidance(args) => commands::harness::gate_guidance(args),
-        Commands::RouteTask(args) => commands::harness::route_task(args),
+        Commands::GateGuidance(args) => commands::routing::gate_guidance(args),
+        Commands::RouteTask(args) => commands::routing::route_task(args),
         Commands::ValidateState(args) => commands::platform::validate_state(args.mode.into()),
         Commands::ValidateWorkflows(args) => {
             commands::platform::validate_workflows(args.mode.into())
         }
         Commands::VerifyReplay(args) => commands::workers::verify_replay(args.mode.into()),
-        Commands::BoundaryCheck => commands::contracts::boundary_check(),
         Commands::Typegen => commands::contracts::typegen(),
         Commands::DriftCheck => commands::contracts::drift_check(),
         Commands::SdkDriftCheck => commands::contracts::sdk_drift_check(),
-        Commands::Gate(args) => commands::harness::gate(args),
-        Commands::VerifyHandoff(args) => commands::harness::verify_handoff(args),
+        Commands::Gate(args) => commands::gate::gate(args),
+        Commands::VerifyHandoff(args) => commands::handoff::verify_handoff(args),
         Commands::ValidateExistence(args) => {
-            commands::harness::validate_existence(args.mode.into())
+            commands::repo_validators::validate_existence(args.mode.into())
         }
-        Commands::ValidateImports(args) => commands::harness::validate_imports(args.mode.into()),
+        Commands::ValidateImports(args) => {
+            commands::repo_validators::validate_imports(args.mode.into())
+        }
         Commands::ValidatePublishIntent(args) => {
-            commands::harness::validate_publish_intent(args.mode.into())
+            commands::repo_validators::validate_publish_intent(args.mode.into())
         }
         Commands::ValidateContractBoundaries(args) => {
             commands::contracts::validate_contract_boundaries(args.mode.into())
@@ -764,6 +825,28 @@ pub(crate) fn run() -> Result<()> {
         Commands::ValidateContracts(args) => {
             commands::contracts::validate_contracts(args.mode.into())
         }
+        Commands::Agent(args) => match args.command {
+            AgentCommand::Validate(args) => match args.command {
+                AgentValidateCommand::Architecture(args) => {
+                    commands::agent_architecture::validate_agent_architecture(args.mode.into())
+                }
+            },
+        },
+        Commands::Check(args) => match args.command {
+            CheckCommand::Boundaries => commands::contracts::boundary_check(),
+        },
+        Commands::Validate(args) => match args.command {
+            ValidateCommand::JustfilesTaxonomy(args) => {
+                commands::command_surface::validate_justfiles_taxonomy(args.mode.into())
+            }
+            ValidateCommand::NewCommandTaxonomy(args) => {
+                commands::command_surface::validate_new_command_taxonomy(args.mode.into())
+            }
+        },
+        Commands::Audit(args) => match args.command {
+            AuditCommand::Inventory => commands::inventory::audit_inventory(),
+            AuditCommand::CommandSurface => commands::command_surface::audit_command_surface(),
+        },
         Commands::GenDirectoryCategories => commands::platform::gen_directory_categories(),
         Commands::VerifyCounterDelivery(args) => {
             commands::platform::verify_counter_delivery(args.mode.into())
